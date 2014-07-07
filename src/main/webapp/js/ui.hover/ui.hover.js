@@ -19,7 +19,8 @@ $.widget( 'ui.hover', {
             background: 'RGBA(180, 255, 100, 0.1)',
             meshBorderColor: 'white',
             meshColor: 'yellow',
-            markerBorderColor: 'blue', markerBorderWidth: 2
+            markerBorderColor: 'blue', markerBorderWidth: 2,
+            areaSelectedColor: 'RGBA(0, 180, 180, 0.25)'
         }
      },
 
@@ -30,6 +31,7 @@ $.widget( 'ui.hover', {
     _borders: null,
     _hLines: null,
     _vLines: null,
+    _areas: null,
 
     _map: null,
     _context: null,
@@ -41,13 +43,16 @@ $.widget( 'ui.hover', {
         this._w = this.options.image.width;
         this._h = this.options.image.height;
 
+        var image = $('<image/>')
+            .attr('id', this._id + 'image')
+            .attr('src', this.options.image.src)
+            .css({ display: 'none' });
         var canvas = $('<canvas/>')
             .attr('id', this._id + 'canvas')
             .attr('width', this._w)
             .attr('height', this._h)
             .text(_MSG_NOT_SUPPORTED)
-            .css(_CSS_NO_BORDER)
-            .css({ background: this.options.flags.background });
+            .css(_CSS_NO_BORDER);
         var touch = $('<img/>')
             .attr('id', this._id + 'touch')
             .attr('src', _IMG_TRANSPARENT)
@@ -67,7 +72,7 @@ $.widget( 'ui.hover', {
             })
             .width(this._w)
             .height(this._h);
-        this.element.append([canvas, touch, this._map]);
+        this.element.append([image, canvas, touch, this._map]);
 
         this._context = document.getElementById(this._id + 'canvas').getContext('2d');
     },
@@ -75,11 +80,12 @@ $.widget( 'ui.hover', {
     // perform calculations and rendering
     _init: function() {
         this._calculateMesh();
-        this._calculateMap(this._map);
+        this._calculateAreas();
 
         this._renderBorders();
         this._renderMesh();
         this._renderMarker();
+        this._renderAreas();
     },
 
     // calculates grid
@@ -157,8 +163,8 @@ $.widget( 'ui.hover', {
                     hit = true;
                 }
             });
-            if (hit)
-                lines.push(line);
+            // last line put into the array actually doesn't hit borders, but is used to calculate partial areas
+            lines.push(line);
             start = __move(start, vector);
             if (moveEnd)
                 end = __move(end, vector);
@@ -166,25 +172,100 @@ $.widget( 'ui.hover', {
         return lines;
     },
 
-    _calculateMap: function(map) {
-        // for each zone
-        // fixme
-        var index = 0;
-        var zone = this.options.marker;
-        {
-            var coords = '';
-            $.each(zone, function() {
-                coords += this.x + "," + this.y + ","
-            });
-            if (coords.length > 0)
-                coords = coords.substring(0, coords.length - 1);
-            var area = $('<area/>')
-                .attr('shape', 'poly')
-                .attr('href', 'javascript:alert(' + index + ')')
-                .attr('alt', _MSG_AREA_ALT)
-                .attr('coords', coords)
-                .css({ });
-            map.append(area);
+    _calculateAreas: function() {
+        var me = this;
+        me._areas = [];
+        this._map.empty();
+
+        var i = 0, j = 0;
+        var hLineA, hLineB, vLineA, vLineB;
+        $.each(me._hLines, function() {
+            if (hLineA) {
+                hLineB = this;
+                $.each(me._vLines, function() {
+                    if (vLineA) {
+                        vLineB = this;
+                        me._areas.push({
+                            index: i + "-" + j,
+                            points: [
+                                __cross(hLineA, vLineA),
+                                __cross(vLineA, hLineB),
+                                __cross(hLineB, vLineB),
+                                __cross(vLineB, hLineA)
+                            ],
+                            state: false
+                        });
+                    }
+                    j++;
+                    vLineA = this;
+                });
+            }
+            i++;
+            j = 0;
+            hLineA = this;
+            vLineA = null;
+        });
+    },
+
+    _renderAreas: function() {
+        var me = this;
+        me._map.empty();
+        $.each(this._areas, function() {
+            console.debug(this);
+            me._renderArea(this.points, this.index);
+        });
+
+    },
+
+    // to draw the marker area : var zone = this.options.marker;
+    _renderArea: function(zone, index) {
+        var coords = '';
+        $.each(zone, function() {
+            coords += this.x + "," + this.y + ","
+        });
+        if (coords.length > 0)
+            coords = coords.substring(0, coords.length - 1);
+        var href = "javascript:$('#" + this.element.attr('id') + "').data('ui-hover').clickArea('" + index + "')";
+        var area = $('<area/>')
+            .attr('shape', 'poly')
+            .attr('href', href)
+            .attr('alt', _MSG_AREA_ALT)
+            .attr('coords', coords);
+        this._map.append(area);
+    },
+
+    clickArea: function(index) {
+        var area;
+        var i = 0;
+        while (!area && i < this._areas.length) {
+            if (this._areas[i].index == index)
+                area = this._areas[i];
+            i++;
+        }
+        area.state = !area.state;
+        this._fillArea(area);
+    },
+
+    _fillArea: function(area) {
+        var context = this._context;
+        var last = area.points[area.points.length - 1];
+        context.beginPath();
+        context.moveTo(last.x, last.y);
+        $.each(area.points, function() {
+            context.lineTo(this.x, this.y);
+        });
+        context.closePath();
+
+        context.globalCompositeOperation = area.state? 'source-over' : 'destination-out';
+        context.fillStyle = area.state? this.options.flags.areaSelectedColor : 'white';
+        context.fill();
+        if (!area.state) {
+            context.globalCompositeOperation = 'source-over';
+            context.globalAlpha = 0.5;
+            context.strokeStyle = this.options.flags.meshColor;
+            context.strokeWidth = 1;
+            context.stroke();
+            context.globalAlpha = 1;
         }
     },
 

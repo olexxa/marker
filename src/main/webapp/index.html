@@ -16,17 +16,20 @@
             $("#hover").hover({
                 image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 1"},
                 marker: [ {x: 190, y: 47}, {x: 238, y: 28}, {x: 276, y: 46}, {x: 237, y: 68}],
-                flags: {borderColor: 'white', meshColor: 'yellow', background: 'RGBA(100, 95, 200, 0.2)'}
+                flags: {borderColor: 'white', meshColor: 'yellow', areaSelectedColor: 'RGBA(255, 0, 0, 0.3)'}
             });
             $("#hover2").hover({
                 image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 2"},
                 marker: [ {x: 100, y: 47}, {x: 138, y: 28}, {x: 276, y: 46}, {x: 237, y: 68}],
-                flags: {borderColor: 'gold', meshColor: 'lightgreen', markerBorderColor: 'red', markerBorderWidth: 3}
+                flags: {borderColor: 'gold', meshColor: 'lightgreen',
+                    markerBorderColor: 'red', markerBorderWidth: 3,
+                    areaSelectedColor: 'RGBA(200, 180, 0, 0.3)'
+                }
             });
             $("#hover3").hover({
                 image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 3"},
                 marker: [ {x: 100, y: 47}, {x: 100, y: 28}, {x: 176, y: 28 }, {x: 176, y: 47}],
-                flags: {borderColor: 'red', meshColor: 'lightblue', border: '1px dotted black', background: 'RGBA(200, 55, 50, 0.2)'}
+                flags: {borderColor: 'red', meshColor: 'lightblue', border: '1px dotted black'}
             });
         });
     //--></script>
