@@ -7,6 +7,8 @@ _MSG_AREA_ALT = 'Switch area';
 _CSS_NO_BORDER = { border: '0px !important', padding: '0px !important', margin: '0px !important' };
 // TODO: replace with 40x40, this one is 1x1 and not optimal for scaling
 _IMG_TRANSPARENT = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+_PANEL_WIDTH = 42;
+_PANEL_RIGHT = 'right';
 
 $.widget( 'ui.hover', {
 
@@ -20,7 +22,11 @@ $.widget( 'ui.hover', {
             meshBorderColor: 'white',
             meshColor: 'yellow',
             markerBorderColor: 'blue', markerBorderWidth: 2,
-            areaSelectedColor: 'RGBA(0, 180, 180, 0.25)'
+            areaSelectedColor: 'RGBA(0, 180, 180, 0.25)',
+            panelAlign: _PANEL_RIGHT,
+            panelBackground: '#B0B0C0',
+            buttonBackground: 'white',
+            buttonShadowColor: "black",
         }
      },
 
@@ -35,6 +41,7 @@ $.widget( 'ui.hover', {
 
     _map: null,
     _context: null,
+    _panel: null,
 
     // creates html components
     _create: function() {
@@ -43,38 +50,49 @@ $.widget( 'ui.hover', {
         this._w = this.options.image.width;
         this._h = this.options.image.height;
 
-        var image = $('<image/>')
-            .attr('id', this._id + 'image')
-            .attr('src', this.options.image.src)
-            .css({ display: 'none' });
+        var isRight = this.options.flags.panelAlign == _PANEL_RIGHT;
+        var left = isRight? 0 : _PANEL_WIDTH;
+
         var canvas = $('<canvas/>')
             .attr('id', this._id + 'canvas')
             .attr('width', this._w)
             .attr('height', this._h)
             .text(_MSG_NOT_SUPPORTED)
-            .css(_CSS_NO_BORDER);
+            .css(_CSS_NO_BORDER)
+            .css({ position: 'relative', left: left, top: 0, zIndex: 10 });
         var touch = $('<img/>')
             .attr('id', this._id + 'touch')
             .attr('src', _IMG_TRANSPARENT)
             .attr('width', this._w)
             .attr('height', this._h)
+            .attr('border', 0)
             .attr('usemap', '#' + this._id + 'map')
             .css(_CSS_NO_BORDER)
-            .css({ position: 'relative', left: 0, top: -this._h });
+            .css({ position: 'relative', left: left, top: -this._h, zIndex: 20 });
         this._map = $('<map/>')
             .attr('id', this._id + 'map')
             .attr('name', this._id + 'map');
+        var panel = $('<canvas/>')
+            .attr('id', this._id + 'panel')
+            .attr('width', _PANEL_WIDTH)
+            .attr('height', this._h)
+            .css(_CSS_NO_BORDER)
+            .css({ position: 'relative', left: isRight? left : -this._w, top: -this._h, zIndex: 30 })
+            .css({ background: this.options.flags.panelBackground });
 
         this.element.empty()
             .css({
                 backgroundImage: 'url(' + this.options.image.src + ')',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: isRight? 'left top' : 'right top',
                 border: this.options.flags.border
             })
-            .width(this._w)
+            .width(this._w + _PANEL_WIDTH)
             .height(this._h);
-        this.element.append([image, canvas, touch, this._map]);
+        this.element.append([canvas, touch, this._map, panel]);
 
         this._context = document.getElementById(this._id + 'canvas').getContext('2d');
+        this._panel = document.getElementById(this._id + 'panel').getContext('2d');
     },
 
     // perform calculations and rendering
@@ -82,10 +100,11 @@ $.widget( 'ui.hover', {
         this._calculateMesh();
         this._calculateAreas();
 
-        this._renderBorders();
         this._renderMesh();
+        this._renderBorders();
         this._renderMarker();
         this._renderAreas();
+        this._renderPanel();
     },
 
     // calculates grid
@@ -211,7 +230,6 @@ $.widget( 'ui.hover', {
         var me = this;
         me._map.empty();
         $.each(this._areas, function() {
-            console.debug(this);
             me._renderArea(this.points, this.index);
         });
 
@@ -325,6 +343,35 @@ $.widget( 'ui.hover', {
         context.closePath();
         context.stroke();
     },
+
+    _renderPanel: function() {
+        var panel = this._panel;
+
+        // panel background
+        var gradient = panel.createLinearGradient(_PANEL_WIDTH / 2, 0, _PANEL_WIDTH / 2, this._h * 1.5);
+        gradient.addColorStop(0.000, this.options.flags.panelBackground);
+        gradient.addColorStop(1.000, 'rgba(255, 255, 255, 1.000)');
+        panel.fillStyle = gradient;
+        panel.fillRect(0, 0, _PANEL_WIDTH, this._h);
+
+        // buttons
+        panel.strokeStyle = 'black';
+        panel.lineWidth = 1;
+        panel.fillStyle = this.options.flags.buttonBackground;
+        panel.shadowColor = this.options.flags.buttonShadowColor;
+        panel.shadowBlur = 1;
+        panel.shadowOffsetX = 1;
+        panel.shadowOffsetY = 1;
+
+        var top = 5, left = 6;
+        var size = _PANEL_WIDTH - 15;//- 2 * 10;
+        for (var i = 0; i < 3; i++) {
+            panel.rect(left, top, size, size);
+            panel.stroke();
+            panel.fill();
+            top += size + 10;
+        }
+    }
 
 });
 
