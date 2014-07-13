@@ -16,6 +16,7 @@ $.widget( 'ui.hover', {
         version: '1.0.0',
         image: { src: _IMG_TRANSPARENT, width: 100, height: 100, alt: 'Picture' },
         marker: [{x: 10, y: 10}, {x: 30, y: 10}, {x: 30, y: 30}, {x: 10, y: 30}],
+        square: 1,
         flags: {
             renderBorder: true, border: 'thin solid black',
             background: 'RGBA(180, 255, 100, 0.1)',
@@ -105,6 +106,7 @@ $.widget( 'ui.hover', {
         this._renderMarker();
         this._renderAreas();
         this._renderPanel();
+        this._renderSelectedCount();
     },
 
     // calculates grid
@@ -252,6 +254,15 @@ $.widget( 'ui.hover', {
         this._map.append(area);
     },
 
+    countAreas: function() {
+        var count = 0;
+        $.each(this._areas, function() {
+            if (this.state)
+                count++;
+        });
+        return count;
+    },
+
     clickArea: function(index) {
         var area;
         var i = 0;
@@ -262,6 +273,9 @@ $.widget( 'ui.hover', {
         }
         area.state = !area.state;
         this._fillArea(area);
+
+        var selected = this.countAreas();
+        this._renderSelectedCount();
     },
 
     _fillArea: function(area) {
@@ -363,7 +377,7 @@ $.widget( 'ui.hover', {
         panel.shadowOffsetX = 1;
         panel.shadowOffsetY = 1;
 
-        var top = 5, left = 6;
+        var top = 38, left = 7;
         var size = _PANEL_WIDTH - 15;//- 2 * 10;
         for (var i = 0; i < 3; i++) {
             panel.rect(left, top, size, size);
@@ -371,9 +385,38 @@ $.widget( 'ui.hover', {
             panel.fill();
             top += size + 10;
         }
+    },
+
+    _renderSelectedCount: function() {
+        var context = this._panel;
+        __resetShadow(context);
+        context.fillStyle = 'black';
+
+        context.clearRect(1, 1, _PANEL_WIDTH - 2, 30);
+
+        context.font = "9px Verdana";
+        context.textBaseLine = 'center';
+        var text = this.countAreas() * this.options.square;
+        var width = context.measureText(text).width;
+        var left = (_PANEL_WIDTH - width) / 2 - 1;
+        var top = 15;
+        context.fillText(text, left, top);
+        context.fillText("dm", 12, top + 13);
+
+        var offset = context.measureText("dm").width;
+        context.font = "7px Verdana";
+        context.textBaseLine = 'top';
+        context.fillText('3', 12 + offset, top + 10);
     }
 
 });
+
+function __resetShadow(context) {
+    context.shadowBlur = 0;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+    context.shadowColor = 'RGBA(0, 0, 0, 0)';
+}
 
 /////// Mathematics ///////
 
