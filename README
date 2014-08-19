@@ -1,1 +1,27 @@
-﻿
+﻿+ feat: show the original photo
++ feat: communicate with the webservice explained in the previous paragraph,
++ feat: render a grid of fields as overlay to the photo,
++ feat: let the user move the grid,
++ feat: let the user change the size of all grid fields via a slider control,
++ feat: let the user mark one up to all fields in the grid by finger tap and mouse click,
++ feat: let the user deselect all fields that are selected by pressing one button,
++ feat: let the user temporary hide grid an fields by pressing button mesh on/of
++ feat: shows real time information about the marked surface area size,
++ feat: handle multi markers
++ impr: join widgets
++ feat: save selection when marker changed
++ impr: draw no lines after vanishing point
++ impr: area fill color: let user select it
++ impr: debug marker coords
++ bug:  no cancel button or select another image, just refresh
++ bug:  java detects wrong coords: more then image size (probably because of scale?)
++ bug:  aspect ratio
++ bug:  half lines missed on some images
++ bug:  wrong move
+
+- feat: returns the size of the selected surface area as JSON data.
+- feat: save as image
+- bug: no markers - no "reload" button
+- bug: next marker icon
+
+-

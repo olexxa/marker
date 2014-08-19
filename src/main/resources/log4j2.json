@@ -1,0 +1,25 @@
+{
+    "configuration": {
+        "status": "error",
+        "name": "marker",
+        "packages": "*",
+        "appenders": {
+            "Console": {
+                "name": "stdout",
+                "PatternLayout": { "pattern": "%m%n" }
+            }
+        },
+        "loggers": {
+            "root": {
+                "level": "error",
+                "AppenderRef": { "ref": "stdout" }
+            },
+            "logger": {
+                "name": "com.softedge",
+                "level": "debug",
+                "AppenderRef": { "ref": "stdout" },
+                "additivity": "false"
+            }
+        }
+    }
+}

@@ -1,118 +1,286 @@
 (function( $, undefined ) {
 
-_MSG_NOT_SUPPORTED = 'Need browser with canvas support';
-_MSG_AREA_ALT = 'Switch area';
+const
+    MSG_NOT_SUPPORTED = 'Need browser with canvas support',
+    MSG_AREA_ALT = 'Switch area',
 
-// this is to ensure that all the layers are not shifted
-_CSS_NO_BORDER = { border: '0px !important', padding: '0px !important', margin: '0px !important' };
-// TODO: replace with 40x40, this one is 1x1 and not optimal for scaling
-_IMG_TRANSPARENT = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-_PANEL_WIDTH = 42;
-_PANEL_RIGHT = 'right';
+    // Canvas can be shifted by 1/3 of its original size
+    DELTA = 0.4,
+    // Ignore area which has any size lowest the specified
+    MIN_AREA_SIZE = 10,
+    // Ignore areas which hits view within this padding
+    BORDER_PROXIMITY = 5,
+    // Restrict mesh lines amount from each marker side
+    MAX_PARALEL_LINES = 100,
+    MAX_VANISH_LINES = 50,
+    // Ignore vanishing lines which angle with base marker line more then specified
+    MAX_ANGLE = Math.PI / 3,
+    // 1, 1/2, 1/4, etc.
+    MIN_SCALE = 1/2;
+
+const
+    _CSS_NO_BORDER = { border: '0px !important', padding: '0px !important', margin: '0px !important' },
+    _CSS_STATUS = {
+        backgroundColor: '#333333', border: 'thin solid white', color: 'white',
+        position: 'absolute', left: 0, height: _STATUS_HEIGHT - 2, minHeight: _STATUS_HEIGHT - 2,
+        fontFamily: 'Verdana', fontSize: '14px', textAlign: 'center', verticalAlign: 'middle'
+    },
+
+    // TODO: replace with 40x40, this one is 1x1 and not optimal for scaling
+    _IMG_TRANSPARENT = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+
+    _LEFT = 'LEFT',
+    _RIGHT = 'right',
+    _TOP = 'top',
+    _BOTTOM = 'bottom',
+    _PANEL_SIZE = 42,
+    _STATUS_HEIGHT = 24
+;
 
 $.widget( 'ui.hover', {
 
+    _markerIndex: 0,
+    _markers: [],
+    _marker: [],
+
     options: {
         version: '1.0.0',
-        image: { src: _IMG_TRANSPARENT, width: 100, height: 100, alt: 'Picture' },
-        marker: [{x: 10, y: 10}, {x: 30, y: 10}, {x: 30, y: 30}, {x: 10, y: 30}],
         square: 1,
+        image: {
+            src: _IMG_TRANSPARENT, width: 100, height: 100, alt: 'Photo'
+        },
+        panel: {
+            align: _TOP,
+            background: '#B0B0C0'
+        },
+        button: {
+            background: 'white',
+            shadowColor: "black"
+        },
+        mesh: {
+            border: 'white',
+            color: 'yellow'
+        },
         flags: {
-            renderBorder: true, border: 'thin solid black',
+            renderBorder: true,
+            border: 'thin solid black',
             background: 'RGBA(180, 255, 100, 0.1)',
-            meshBorderColor: 'white',
-            meshColor: 'yellow',
             markerBorderColor: 'blue', markerBorderWidth: 2,
-            areaSelectedColor: 'RGBA(0, 180, 180, 0.25)',
-            panelAlign: _PANEL_RIGHT,
-            panelBackground: '#B0B0C0',
-            buttonBackground: 'white',
-            buttonShadowColor: "black",
+            fillColors: [
+                'RGBA(0, 180, 180, 0.5)',
+                'RGBA(255, 0, 0, 0.5)',
+                'RGBA(200, 180, 0, 0.5)',
+                'RGBA(0, 0, 255, 0.5)'
+            ],
+            delta: null
         }
      },
 
-    _id: null,
-    _w: null,
-    _h: null,
-
-    _borders: null,
-    _hLines: null,
-    _vLines: null,
-    _areas: null,
-
-    _map: null,
-    _context: null,
-    _panel: null,
-
     // creates html components
     _create: function() {
-        this._id = this.element.attr('id') + '_hover_';
+        var me = this;
+        me._id = me.element.attr('id') + '_hover_';
 
-        this._w = this.options.image.width;
-        this._h = this.options.image.height;
+        me._w = me.options.image.width;
+        me._h = me.options.image.height;
 
-        var isRight = this.options.flags.panelAlign == _PANEL_RIGHT;
-        var left = isRight? 0 : _PANEL_WIDTH;
+        me._scale = 1;
+        me._translate = { left: 0, top: 0 };
 
-        var canvas = $('<canvas/>')
-            .attr('id', this._id + 'canvas')
-            .attr('width', this._w)
-            .attr('height', this._h)
-            .text(_MSG_NOT_SUPPORTED)
+        me._horizontalPanel = me.options.panel.align == _TOP || me.options.panel.align == _BOTTOM;
+        var topPanel = me._horizontalPanel && me.options.panel.align == _TOP,
+            leftPanel = !me._horizontalPanel && me.options.panel.align != _RIGHT;
+        me._top  = me._horizontalPanel && topPanel? _PANEL_SIZE : 0;
+        me._left = !me._horizontalPanel && leftPanel? _PANEL_SIZE : 0;
+
+        me._canvas = $('<canvas/>')
+            .attr('id', me._id + 'canvas')
+            .attr('width', me._w)
+            .attr('height', me._h)
+            .text(MSG_NOT_SUPPORTED)
             .css(_CSS_NO_BORDER)
-            .css({ position: 'relative', left: left, top: 0, zIndex: 10 });
-        var touch = $('<img/>')
-            .attr('id', this._id + 'touch')
-            .attr('src', _IMG_TRANSPARENT)
-            .attr('width', this._w)
-            .attr('height', this._h)
-            .attr('border', 0)
-            .attr('usemap', '#' + this._id + 'map')
-            .css(_CSS_NO_BORDER)
-            .css({ position: 'relative', left: left, top: -this._h, zIndex: 20 });
-        this._map = $('<map/>')
-            .attr('id', this._id + 'map')
-            .attr('name', this._id + 'map');
-        var panel = $('<canvas/>')
-            .attr('id', this._id + 'panel')
-            .attr('width', _PANEL_WIDTH)
-            .attr('height', this._h)
-            .css(_CSS_NO_BORDER)
-            .css({ position: 'relative', left: isRight? left : -this._w, top: -this._h, zIndex: 30 })
-            .css({ background: this.options.flags.panelBackground });
-
-        this.element.empty()
-            .css({
-                backgroundImage: 'url(' + this.options.image.src + ')',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: isRight? 'left top' : 'right top',
-                border: this.options.flags.border
+            .css({ position: 'absolute', left: me._left, top: me._top, zIndex: 10, overflow: 'visible' })
+            .mousedown(function(event) {
+                if (me._shifting)
+                    me._dragStart(event.pageX, event.pageY);
+//                else if (me._scaling)
+//                    me._scaleStart(event.pageX, event.pageY);
             })
-            .width(this._w + _PANEL_WIDTH)
-            .height(this._h);
-        this.element.append([canvas, touch, this._map, panel]);
+            .mousemove(function(event) {
+                if (me._shifting)
+                    me._dragStep(event.pageX, event.pageY);
+//                else if (me._scaling)
+//                    me._scaleStep(event.pageX, event.pageY);
+            })
+            .mouseup(function() {
+                if (me._shifting)
+                    me._dragStop();
+//                else if (me._scaling)
+//                    me._scaleStop();
+            })
+            .mouseout(function() {
+                if (me._shifting)
+                    me._dragStop();
+//                else if (me._scaling)
+//                    me._scaleStop();
+            });
+        me._touch = $('<img border="0" alt=""/>')
+            .attr('id', me._id + 'touch')
+            .attr('src', _IMG_TRANSPARENT)
+            .attr('width', me._w * (1 + 2 * DELTA))
+            .attr('height', me._h * (1 + 2 * DELTA))
+            .attr('usemap', '#' + me._id + 'map')
+            .css(_CSS_NO_BORDER)
+            .css({ position: 'absolute',
+                left: me._left - me._w * DELTA,
+                top:  me._top - me._h * DELTA,
+                zIndex: 20
+            });
+        me._map = $('<map/>')
+            .attr('id', me._id + 'map')
+            .attr('name', me._id + 'map');
 
-        this._context = document.getElementById(this._id + 'canvas').getContext('2d');
-        this._panel = document.getElementById(this._id + 'panel').getContext('2d');
+        var panelLeft = !me._horizontalPanel && !leftPanel? me._w : 0,
+            panelTop = me._horizontalPanel && !topPanel? me._h : 0,
+            panelWidth = me._horizontalPanel? me._w : _PANEL_SIZE,
+            panelHeight = !me._horizontalPanel? me._h : _PANEL_SIZE,
+            css = { position: 'absolute', left: panelLeft, top: panelTop, width: panelWidth, height: panelHeight };
+        var panel = $('<canvas/>')
+            .attr('id', me._id + 'panel')
+            .attr('width', panelWidth)
+            .attr('height', panelHeight)
+            .css(_CSS_NO_BORDER)
+            .css(css)
+            .css({
+                zIndex: 30,
+                background: me.options.panel.background
+            });
+        var panelTouch = $('<img alt="" border="0"/>')
+            .attr('id', me._id + 'panelTouch')
+            .attr('src', _IMG_TRANSPARENT)
+            .attr('width', panelWidth)
+            .attr('height', panelHeight)
+            .attr('usemap', '#' + me._id + 'panelMap')
+            .css(_CSS_NO_BORDER)
+            .css(css)
+            .css({ zIndex: 40 });
+        me._panelMap = $('<map/>')
+            .attr('id', me._id + 'panelMap')
+            .attr('name', me._id + 'panelMap');
+
+        var width = me._horizontalPanel? me._w : me._w + _PANEL_SIZE,
+            height = !me._horizontalPanel? me._h : me._h + _PANEL_SIZE;
+        me._status = $('<div/>')
+            .attr('id', me._id + 'status')
+            .attr('width', width)
+            .attr('height', _STATUS_HEIGHT)
+            .css(_CSS_STATUS)
+            .css({ top: height, minWidth: width, width: width });
+
+        var backHPos = !me._horizontalPanel && leftPanel? 'right' : 'left',
+            backVPos = me._horizontalPanel && topPanel? 'bottom' : 'top';
+        me.element.empty()
+            .css({
+                backgroundImage: 'url(' + me.options.image.src + ')',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: backHPos + ' ' + backVPos,
+                border: me.options.flags.border,
+//                position: 'relative'
+                position: 'absolute', overflow: 'hidden',
+                top: '50%', left: '50%',
+                marginLeft: -width / 2,
+                marginTop: -height / 2
+            })
+            .width(width)
+            .height(height);
+        me.element.append([
+            me._canvas, me._touch, me._map,
+            panel, panelTouch, me._panelMap,
+            me._status
+        ]);
+
+        me._context = document.getElementById(me._id + 'canvas').getContext('2d');
+        me._panel = document.getElementById(me._id + 'panel').getContext('2d');
     },
 
     // perform calculations and rendering
-    _init: function() {
-        this._calculateMesh();
-        this._calculateAreas();
+    markers: function(markers) {
+        var me = this;
+        if (!markers || markers.length == 0) {
+            me._noMarkers();
+            return;
+        }
 
-        this._renderMesh();
-        this._renderBorders();
-        this._renderMarker();
-        this._renderAreas();
-        this._renderPanel();
-        this._renderSelectedCount();
+        me._scaleMarkers(markers);
+        me._markers = markers;
+        me._markerIndex = 0;
+        me._resize = 1;
+        me._selectMarker();
+        me._render();
+    },
+
+    _scaleMarkers: function(markers) {
+        var me = this;
+        var ratio = me.options.image.ratio;
+        if (!ratio)
+            return;
+        $.each(markers, function(index, marker) {
+            $.each(marker.points, function(index, point) {
+                point.x = point.x / ratio;
+                point.y = point.y / ratio;
+            });
+        });
+    },
+
+    _noMarkers: function() {
+        var me = this;
+        me.status('No markers detected');
+    },
+
+    _render: function() {
+        var me = this;
+        me._clear();
+        me._calculateMesh();
+        me._calculateAreas();
+
+        me._renderMesh();
+        me._renderBorders();
+        me._renderMarker();
+        me._renderAreas();
+        me._renderPanel();
+        me._renderSelectedCount();
+    },
+
+    _clear: function() {
+        var me = this;
+        me._context.save();
+        me._context.setTransform(1, 0, 0, 1, 0, 0);
+        me._context.clearRect(0, 0, me._w, me._h);
+        me._context.restore();
+    },
+
+    _selectMarker: function() {
+        var me = this;
+        if (!me._markers[me._markerIndex])
+            me._markerIndex = 0;
+
+        me._marker = me._markers[me._markerIndex].points;
+    },
+
+    nextMarker: function(index) {
+        var me = this;
+        me._saveSelection();
+        me._markerIndex++;
+        me._selectMarker();
+        me._render();
+        me._restoreSelection();
     },
 
     // calculates grid
     _calculateMesh: function() {
+        var me = this;
         // base lines are marker borders
-        var m = this.options.marker;
+        var m = me._marker;
         var vLine1 = __line(m[0], m[1]),
             vLine2 = __line(m[3], m[2]),
             hLine1 = __line(m[1], m[2]),
@@ -120,61 +288,81 @@ $.widget( 'ui.hover', {
         // they form two vanishing points
         var vanishV = __cross(vLine1, vLine2),
             vanishH = __cross(hLine1, hLine2);
+        if (vanishV && vanishH && me._insideVisible([vanishV]) && me._insideVisible([vanishH]))
+            me.status('Bad marker perspective');
+
         // rendering area (0,0)-(w,h)
-        this._borders = [
-            __line({x: 0, y: 0}, {x: this._w, y: 0}),
-            __line({x: 0, y: 0}, {x: 0, y: this._h}),
-            __line({x: 0, y: this._h}, {x: this._w, y: this._h}),
-            __line({x: this._w, y: 0}, {x: this._w, y: this._h})
+        // surronunded by extra areas for moving
+        var minX = -me._w * DELTA, maxX = me._w * (1 + DELTA),
+            minY = -me._h * DELTA, maxY = me._h * (1 + DELTA);
+        me._borders = [
+            __line({x: minX, y: minY}, {x: maxX, y: minY}),
+            __line({x: minX, y: minY}, {x: minX, y: maxY}),
+            __line({x: minX, y: maxY}, {x: maxX, y: maxY}),
+            __line({x: maxX, y: minY}, {x: maxX, y: maxY})
         ];
 
         var vLinesNeg, vLinesPos, hLinesNeg, hLinesPos;
         if (vanishV) {
-            vLinesNeg = this._getVanishLines(hLine1, vanishV, false);
-            vLinesPos = this._getVanishLines(hLine1, vanishV, true);
+            vLinesNeg = me._getVanishLines(hLine1, vanishV, false, vanishH);
+            vLinesPos = me._getVanishLines(hLine1, vanishV, true, vanishH);
         } else {
-            vLinesNeg = this._getParallelLines(hLine1, vLine1, false);
-            vLinesPos = this._getParallelLines(hLine1, vLine1, true);
+            vLinesNeg = me._getParallelLines(hLine1, vLine1, false, vanishH);
+            vLinesPos = me._getParallelLines(hLine1, vLine1, true, vanishH);
         }
         if (vanishH) {
-            hLinesNeg = this._getVanishLines(vLine1, vanishH, false);
-            hLinesPos = this._getVanishLines(vLine1, vanishH, true);
+            hLinesNeg = me._getVanishLines(vLine1, vanishH, false, vanishV);
+            hLinesPos = me._getVanishLines(vLine1, vanishH, true, vanishV);
         } else {
-            hLinesNeg = this._getParallelLines(vLine1, hLine1, false);
-            hLinesPos = this._getParallelLines(vLine1, hLine1, true);
+            hLinesNeg = me._getParallelLines(vLine1, hLine1, false, vanishV);
+            hLinesPos = me._getParallelLines(vLine1, hLine1, true, vanishV);
         }
 
-        this._vLines = $.merge($.merge([], vLinesNeg.reverse()), vLinesPos);
-        this._hLines = $.merge($.merge([], hLinesNeg.reverse()), hLinesPos);
+        me._vLines = $.merge($.merge([], vLinesNeg.reverse()), vLinesPos);
+        me._hLines = $.merge($.merge([], hLinesNeg.reverse()), hLinesPos);
+
+        me._vanishV = vanishV;
+        me._vanishH = vanishH;
     },
 
     // found all the lines from point to vanishing point that cross the borders
     // point are moved from starting position by vector
-    _getVanishLines: function(ort, vanish, direction) {
-        var start = direction? ort.pA : ort.pB;
+    _getVanishLines: function(ort, vanish, direction, vanishO) {
+        var me = this;
+
         var sign = direction? 1 : -1;
         var vector = { x: -sign * ort.a, y: sign * ort.b };
-
-        return this._getLines(start, vanish, vector, false);
+        vector.x = vector.x * me._resize;
+        vector.y = vector.y * me._resize;
+        var start = direction? ort.pA : __move(ort.pA, vector);
+        return me._getLines(start, vanish, vector, false, vanishO);
     },
 
     // found all the lines from point to end point, both moved by vector
-    _getParallelLines: function(ort, base, direction) {
-        var start = direction? ort.pA : ort.pB;
-        var end = __move(start, {x: base.a, y: -base.b});
+    _getParallelLines: function(ort, base, direction, vanishO) {
+        var me = this;
+
         var sign = direction? 1 : -1;
         var vector = { x: -sign * ort.a, y: sign * ort.b };
-        return this._getLines(start, end, vector, true);
+        vector.x = vector.x * me._resize;
+        vector.y = vector.y * me._resize;
+        var start = direction? ort.pA : __move(ort.pA, vector);
+        var end = __move(start, {x: base.a, y: -base.b});
+
+        return me._getLines(start, end, vector, true, vanishO);
     },
 
-    _getLines: function(start, end, vector, moveEnd) {
-        var lines = [];
-        var i = 0;
-        var hit = true;
-        while (hit && i++ < 100) {
+    _getLines: function(start, end, vector, moveEnd, vanish) {
+        var me = this;
+        var lines = [],
+            i = 0,
+            hit = true,
+            origin = __line(start, end);
+
+        while (hit && i++ < (moveEnd? MAX_PARALEL_LINES : MAX_VANISH_LINES)) {
             var line = __line(start, end);
             hit = false;
-            $.each(this._borders, function() {
+            $.each(me._borders, function() {
                 var cross = __crossSegment(line, this);
                 if (cross) {
                     if (hit)
@@ -184,11 +372,28 @@ $.widget( 'ui.hover', {
                     hit = true;
                 }
             });
-            // last line put into the array actually doesn't hit borders, but is used to calculate partial areas
+            var oldStart = start;
+            if (hit) { // optimization, !hit => last iteration
+                start = __move(start, vector);
+                if (moveEnd)
+                    end = __move(end, vector);
+            }
+            // check if next line will cross vanish
+            if (vanish) {
+                var delta = __line(oldStart, start);
+                if (__pointOnLine(vanish, delta))
+                    hit = false;
+            }
+            var c1 = origin.vertical? Math.PI / 2 : Math.atan(origin.k);
+            var c2 = line.vertical? Math.PI / 2 : Math.atan(line.k);
+            if (!origin.vertical && !line.vertical) {
+                var dk = Math.abs(c1 - c2);
+                if (dk > MAX_ANGLE)
+                    hit = false;
+            }
+            // last line put into the array actually doesn't hit borders,
+            // but is used to calculate partial areas
             lines.push(line);
-            start = __move(start, vector);
-            if (moveEnd)
-                end = __move(end, vector);
         }
         return lines;
     },
@@ -196,7 +401,7 @@ $.widget( 'ui.hover', {
     _calculateAreas: function() {
         var me = this;
         me._areas = [];
-        this._map.empty();
+        me._map.empty();
 
         var i = 0, j = 0;
         var hLineA, hLineB, vLineA, vLineB;
@@ -206,7 +411,7 @@ $.widget( 'ui.hover', {
                 $.each(me._vLines, function() {
                     if (vLineA) {
                         vLineB = this;
-                        me._areas.push({
+                        var area = {
                             index: i + "-" + j,
                             points: [
                                 __cross(hLineA, vLineA),
@@ -215,7 +420,15 @@ $.widget( 'ui.hover', {
                                 __cross(vLineB, hLineA)
                             ],
                             state: false
-                        });
+                        };
+                        var small =
+                            __length(area.points[0], area.points[1]) < MIN_AREA_SIZE ||
+                            __length(area.points[1], area.points[2]) < MIN_AREA_SIZE ||
+                            __length(area.points[2], area.points[3]) < MIN_AREA_SIZE ||
+                            __length(area.points[3], area.points[0]) < MIN_AREA_SIZE;
+
+                        if (!small && me._inside(area.points))
+                            me._areas.push(area);
                     }
                     j++;
                     vLineA = this;
@@ -228,58 +441,165 @@ $.widget( 'ui.hover', {
         });
     },
 
+    _inside: function(points) {
+        var me = this;
+        var min = { x: -me._w * DELTA + BORDER_PROXIMITY, y: -me._h * DELTA + BORDER_PROXIMITY },
+            max = { x: me._w * (1 + DELTA) - BORDER_PROXIMITY, y: me._h * (1 + DELTA) - BORDER_PROXIMITY };
+        return __inside(points, min, max);
+    },
+
+    _insideVisible: function(points) {
+        var me = this;
+        var min = { x: -BORDER_PROXIMITY, y: -BORDER_PROXIMITY },
+            max = { x: me._w - BORDER_PROXIMITY, y: me._h - BORDER_PROXIMITY };
+        return __inside(points, min, max);
+    },
+
     _renderAreas: function() {
         var me = this;
         me._map.empty();
-        $.each(this._areas, function() {
-            me._renderArea(this.points, this.index);
+        var offset = {
+            x: me._left - me._w * DELTA,
+            y: -me._h * DELTA
+        };
+        $.each(me._areas, function() {
+            me._renderArea(me._map, this.points, "'" + this.index + "'", 'clickArea', MSG_AREA_ALT, offset);
         });
 
     },
 
-    // to draw the marker area : var zone = this.options.marker;
-    _renderArea: function(zone, index) {
+    _renderArea: function(map, zone, params, operation, alt, offset) {
+        var me = this;
         var coords = '';
         $.each(zone, function() {
-            coords += this.x + "," + this.y + ","
+            var x = offset? this.x - offset.x : this.x;
+            var y = offset? this.y - offset.y : this.y;
+            coords += x + "," + y + ","
         });
         if (coords.length > 0)
             coords = coords.substring(0, coords.length - 1);
-        var href = "javascript:$('#" + this.element.attr('id') + "').data('ui-hover').clickArea('" + index + "')";
+        var href = "javascript:$('#" + me.element.attr('id') + "').data('ui-hover')." + operation + "(" + params + ")";
         var area = $('<area/>')
             .attr('shape', 'poly')
             .attr('href', href)
-            .attr('alt', _MSG_AREA_ALT)
+            .attr('alt', alt)
+            .attr('title', alt)
             .attr('coords', coords);
-        this._map.append(area);
+        map.append(area);
+    },
+
+    _saveSelection: function() {
+        var me = this;
+        var selection = [];
+        $.each(me._areas, function(index, area) {
+            if (area.state)
+                selection.push(index);
+        });
+        if (!me._selection)
+            me._selection = [];
+        me._selection[me._markerIndex] = selection;
+    },
+
+    _restoreSelection: function() {
+        var me = this;
+        var selection = me._selection && me._selection[me._markerIndex];
+        if (!selection)
+            return;
+        $.each(selection, function(index, areaIndex) {
+            var area = me._areas[areaIndex];
+            area.state = true;
+            me._fillArea(area);
+        });
+        me._renderSelectedCount();
+    },
+
+    _emptySelection: function() {
+        var me = this;
+        me._selection = [];
     },
 
     countAreas: function() {
+        var me = this;
         var count = 0;
-        $.each(this._areas, function() {
+        $.each(me._areas, function() {
             if (this.state)
                 count++;
         });
         return count;
     },
 
+    getSelectedSquare: function() {
+        var me = this;
+        return "" + me.countAreas() * (me._resize * me._resize) * me.options.square;
+    },
+
+    _renderSelectedCount: function() {
+        var me = this;
+        var context = me._panel;
+        __resetShadow(context);
+        context.fillStyle = 'black';
+
+        context.clearRect(1, 1, _PANEL_SIZE - 2, 30);
+
+        context.font = "9px Verdana";
+        context.textBaseLine = 'center';
+        var square = me.getSelectedSquare();
+        var width = context.measureText(square).width;
+        var left = (_PANEL_SIZE - width) / 2;
+        var top = me._horizontalPanel? 18 : 16;
+        context.fillText(square, left, top);
+        context.fillText("dm", 13, top + 13);
+
+        var offset = context.measureText("dm").width;
+        context.font = "7px Verdana";
+        context.textBaseLine = 'top';
+        context.fillText('2', 13 + offset, top + 10);
+    },
+
     clickArea: function(index) {
+        var me = this;
         var area;
         var i = 0;
-        while (!area && i < this._areas.length) {
-            if (this._areas[i].index == index)
-                area = this._areas[i];
+        while (!area && i < me._areas.length) {
+            if (me._areas[i].index == index)
+                area = me._areas[i];
             i++;
         }
         area.state = !area.state;
-        this._fillArea(area);
+        me._fillArea(area);
+        me._renderSelectedCount();
+        me._renderMarker();
+    },
 
-        var selected = this.countAreas();
-        this._renderSelectedCount();
+    _redrawAllAreas: function() {
+        var me = this;
+        $.each(me._areas, function() {
+            if (this.state) {
+                this.state = false;
+                me._fillArea(this);
+                this.state = true;
+                me._fillArea(this);
+            }
+        });
+        me._renderMarker();
+    },
+
+    // if state is passed, set it to each visible area
+    _toggleAllAreas: function(state) {
+        var me = this;
+        $.each(me._areas, function() {
+            if (!state || me._insideVisible(this.points)) {
+                this.state = state;
+                me._fillArea(this);
+            }
+        });
+        me._renderMarker();
+        me._renderSelectedCount();
     },
 
     _fillArea: function(area) {
-        var context = this._context;
+        var me = this;
+        var context = me._context;
         var last = area.points[area.points.length - 1];
         context.beginPath();
         context.moveTo(last.x, last.y);
@@ -288,13 +608,16 @@ $.widget( 'ui.hover', {
         });
         context.closePath();
 
+        if (!me._fillColorIndex) me._fillColorIndex = 0;
+        var color = me.options.flags.fillColors[me._fillColorIndex];
+
         context.globalCompositeOperation = area.state? 'source-over' : 'destination-out';
-        context.fillStyle = area.state? this.options.flags.areaSelectedColor : 'white';
+        context.fillStyle = area.state? color : 'white';
         context.fill();
         if (!area.state) {
             context.globalCompositeOperation = 'source-over';
             context.globalAlpha = 0.5;
-            context.strokeStyle = this.options.flags.meshColor;
+            context.strokeStyle = me.options.mesh.color;
             context.strokeWidth = 1;
             context.stroke();
             context.globalAlpha = 1;
@@ -303,110 +626,451 @@ $.widget( 'ui.hover', {
 
     _renderBorders: function() {
         var me = this;
-        if (this.options.flags.renderBorder)
-            $.each(this._borders, function() {
-                me._renderSegment(this, me.options.flags.borderColor);
-            });
-    },
+        if (me.options.flags.renderBorder) {
+            me._context.save();
+            me._context.setTransform(1, 0, 0, 1, 0, 0);
 
-    _renderMesh: function() {
-        var me = this;
-        $.each(this._vLines, function() {
-            me._renderLine(this);
-        });
-        $.each(this._hLines, function() {
-            me._renderLine(this);
-        });
+            me._context.strokeStyle = me.options.flags.borderColor;
+
+            me._context.beginPath();
+            me._context.moveTo(0, 0);
+            me._context.lineTo(0, me._h);
+            me._context.lineTo(me._w, me._h);
+            me._context.lineTo(me._w, 0);
+            me._context.closePath();
+            me._context.stroke();
+
+            me._context.restore();
+        }
     },
 
     _renderMarker: function() {
-        var context = this._context;
-        var last = this.options.marker[this.options.marker.length - 1];
+        var me = this;
+        var context = me._context;
+        var last = me._marker[me._marker.length - 1];
 
-        context.strokeStyle = this.options.flags.markerBorderColor;
-        context.lineWidth = this.options.flags.markerBorderWidth;
+        context.strokeStyle = me.options.flags.markerBorderColor;
+        context.lineWidth = me.options.flags.markerBorderWidth;
         context.beginPath();
         context.moveTo(last.x, last.y);
-        $.each(this.options.marker, function() {
+        $.each(me._marker, function() {
             context.lineTo(this.x, this.y);
         });
         context.closePath();
         context.stroke();
     },
 
+    _renderMesh: function() {
+        var me = this;
+        me._context.strokeStyle = me.options.mesh.color;
+
+        var first, last;
+
+        first = me._hLines[0];
+        last = me._hLines[me._hLines.length - 1];
+        $.each(me._vLines, function() {
+            me._renderLine(this, first, last);
+        });
+
+        first = me._vLines[0];
+        last = me._vLines[me._vLines.length - 1];
+        $.each(me._hLines, function() {
+            me._renderLine(this, first, last);
+        });
+    },
+
     // render line passed, its, visible segment restricted by horizontal axises
-    _renderLine: function(line, color) {
+    // render canvas twice as big, because of moving
+    _renderLine: function(line, first, last, color) {
+        var me = this;
         var pA, pB;
-        if (line.vertical) {
-            pA = { x: __lineX(line, 0), y: 0 };
-            pB = { x: __lineX(line, this._h), y: this._h };
-        } else {
-            pA = { x: 0, y: __lineY(line, 0)};
-            pB = { x: this._w, y: __lineY(line, this._w)};
+        if (first && last) {
+            if (__parallel(line, first) || __parallel(line, last))
+                return;
+            pA = __cross(line, first);
+            pB = __cross(line, last);
         }
-        this._renderSegment(__line(pA, pB), color);
+//        if (!pA || !pB) {
+//            if (line.vertical) {
+//                var minY = -me._h * DELTA, maxY = me._h * (1 + DELTA);
+//                var x = __lineX(line, 0); // x == const because line is vertical
+//                pA = { x: x, y: minY };
+//                pB = { x: x, y: maxY };
+//            } else {
+//                var minX = -me._w * DELTA, maxX = me._w * (1 + DELTA);
+//                pA = { x: minX, y: __lineY(line, minX) };
+//                pB = { x: maxX, y: __lineY(line, maxX) };
+//            }
+//        }
+        //console.debug(pA.x + ", " + pA.y + " - " + pB.x + ", " + pB.y);
+        me._renderSegment({ pA: pA, pB: pB }, color);
     },
 
     _renderSegment: function(line, color) {
-        var context = this._context;
-
-        context.strokeStyle = color || this.options.flags.meshColor;
-        context.beginPath();
-        context.moveTo(line.pA.x, line.pA.y);
-        context.lineTo(line.pB.x, line.pB.y);
-        context.closePath();
-        context.stroke();
+        var me = this;
+        if (color)
+            me._context.strokeStyle = color;
+        me._context.beginPath();
+        me._context.moveTo(line.pA.x, line.pA.y);
+        me._context.lineTo(line.pB.x, line.pB.y);
+        me._context.closePath();
+        me._context.stroke();
     },
 
+    _BUTTONS: [
+        { name: 'marker',  src: 'img/btn_marker.png',  alt: 'Next marker',          callback: 'nextMarker',
+            checkVisible: function(me) { return me._markers.length > 1; } },
+        { name: 'select',  src: 'img/btn_select.png',   alt: 'Toggle selection',     callback: 'toggleSelection' },
+        { name: 'palette', src: 'img/btn_palette.png',  alt: 'Next selection color', callback: 'selectionColor' },
+        { name: 'show',    src: 'img/btn_show.png',     alt: 'Toggle mesh',          callback: 'toggleMesh' },
+        { name: 'shift',   src: 'img/btn_shift.png',    alt: 'Move mesh',            callback: 'toggleShift' },
+        { name: 'resize',                               alt: 'Resize mesh',          callback: 'toggleResize',
+            render: function(me, left, top, size) { me._renderResizeButton(this, left, top, size); }},
+        { name: 'reset',   src: 'img/btn_reset.png',    alt: 'Reset mesh',           callback: 'resetMesh' },
+        { name: 'reimage', src: 'img/btn_newphoto.png', alt: 'Upload another image', callback: 'chooseImage' }
+    ],
+
     _renderPanel: function() {
-        var panel = this._panel;
+        var me = this;
+
+        var width = me._panel.canvas.width,
+            height = me._panel.canvas.height;
 
         // panel background
-        var gradient = panel.createLinearGradient(_PANEL_WIDTH / 2, 0, _PANEL_WIDTH / 2, this._h * 1.5);
-        gradient.addColorStop(0.000, this.options.flags.panelBackground);
+        var gradient = me._horizontalPanel?
+            me._panel.createLinearGradient(0, height / 2, width * 1.5, height / 2) :
+            me._panel.createLinearGradient(width / 2, 0, width / 2, height * 1.5);
+        gradient.addColorStop(0.000, me.options.panel.background);
         gradient.addColorStop(1.000, 'rgba(255, 255, 255, 1.000)');
-        panel.fillStyle = gradient;
-        panel.fillRect(0, 0, _PANEL_WIDTH, this._h);
+        me._panel.fillStyle = gradient;
+        me._panel.fillRect(0, 0, width, height);
 
         // buttons
-        panel.strokeStyle = 'black';
-        panel.lineWidth = 1;
-        panel.fillStyle = this.options.flags.buttonBackground;
-        panel.shadowColor = this.options.flags.buttonShadowColor;
-        panel.shadowBlur = 1;
-        panel.shadowOffsetX = 1;
-        panel.shadowOffsetY = 1;
+        me._panel.strokeStyle = 'black';
+        me._panel.srokeWidth = 1;
+        me._panel.fillStyle = me.options.button.background;
+        me._panel.shadowColor = me.options.button.shadowColor;
+        me._panel.shadowBlur = 1;
+        me._panel.shadowOffsetX = 1;
+        me._panel.shadowOffsetY = 1;
 
-        var top = 38, left = 7;
-        var size = _PANEL_WIDTH - 15;//- 2 * 10;
-        for (var i = 0; i < 3; i++) {
-            panel.rect(left, top, size, size);
-            panel.stroke();
-            panel.fill();
-            top += size + 10;
+        var i = 0;
+        $.each(me._BUTTONS, function(index, button) {
+            var hide = button.checkVisible && !button.checkVisible(me);
+            if (!hide) {
+                button.position = i++;
+                me._renderButton(index);
+            }
+        });
+    },
+
+    _renderButton: function(index) {
+        var me = this;
+        var button = me._BUTTONS[index];
+        var size = _PANEL_SIZE - 13,
+            off = button.position * (size + 10),
+            top = me._horizontalPanel? 6: 38 + off,
+            left = me._horizontalPanel? 42 + off : 6;
+
+        me._panel.beginPath();
+        me._panel.rect(left - 1, top - 1, size + 2, size + 2);
+        me._panel.fill();
+
+        if (button.src) {
+            var img = new Image();
+            img.onload = function() {
+                me._panel.drawImage(img, left, top, size, size);
+                if (button.state) {
+                    var data = me._panel.getImageData(left, top, size, size);
+                    for (var i = 0; i < data.data.length; i += 4) {
+                        // invert everything but red channel
+                        data.data[i]     = data.data[i]; // R
+                        data.data[i + 1] = 255 - data.data[i + 1]; // G
+                        data.data[i + 2] = 255 - data.data[i + 2]; // B
+                        data.data[i + 3] = 255; // Alpha
+                    }
+                    me._panel.putImageData(data, left, top);
+                }
+
+            };
+            img.src = button.src;
+        }
+        if (button.render)
+            button.render(me, left, top, size);
+
+        var points = [
+            {x: left, y: top},
+            {x: left + size, y: top},
+            {x: left + size, y: top + size},
+            {x: left, y: top + size}
+        ];
+        me._renderArea(me._panelMap, points, index, button.callback, button.alt);
+    },
+
+    toggleSelection: function() {
+        var me = this;
+        var selected = me.countAreas();
+        me._toggleAllAreas(selected == 0);
+    },
+
+    selectionColor: function(index) {
+        var me = this;
+
+        //me._panel.fillStyle = me.options.flags.fillColors[me._fillColorIndex];
+        //me._renderButton(index);
+
+        var toggled = [];
+
+        // firstly we must remove current fill, because it's partially transparent,
+        // so drawing over it will multiply colors
+        // so we uncheck element and so redraw it
+        // it must be done with the original color
+        $.each(me._areas, function() {
+            if (this.state) {
+                toggled.push(this);
+                this.state = false;
+                me._fillArea(this);
+            }
+        });
+        // now we can change color and redraw
+        if (++me._fillColorIndex >= me.options.flags.fillColors.length)
+            me._fillColorIndex = 0;
+
+        $.each(toggled, function() {
+            // now we can fill it with the new color
+            this.state = true;
+            me._fillArea(this);
+
+        });
+
+        me._renderMarker();
+    },
+
+    toggleMesh: function(index) {
+        var me = this;
+        me._hiding = !me._hiding;
+
+        me._BUTTONS[index].state = me._hiding;
+        me._renderButton(index);
+
+        me._dragStop();
+        me._canvas.toggle();
+        if (me._hiding || me._shifting)
+            me._touch.hide();
+        else
+            me._touch.show();
+    },
+
+    toggleShift: function(index) {
+        var me = this;
+        if (me._scaling) {
+            me.status("Turn off scaling to shift");
+            return;
+        }
+
+        me._shifting = !me._shifting;
+
+        me._BUTTONS[index].state = me._shifting;
+        me._renderButton(index);
+
+        if (me._shifting) {
+            me._touch.hide();
+            me._canvas.css({cursor: 'move'});
+        } else {
+            if (!me._hiding)
+                me._touch.show();
+            me._canvas.css({cursor: 'default'});
         }
     },
 
-    _renderSelectedCount: function() {
-        var context = this._panel;
-        __resetShadow(context);
-        context.fillStyle = 'black';
+    _dragStart: function(x, y) {
+        var me = this;
+        if (!me._shifting)
+            return;
 
-        context.clearRect(1, 1, _PANEL_WIDTH - 2, 30);
+        me._dragging = {
+            x: x - me._translate.left,
+            y: y - me._translate.top
+        };
+    },
 
-        context.font = "9px Verdana";
-        context.textBaseLine = 'center';
-        var text = this.countAreas() * this.options.square;
-        var width = context.measureText(text).width;
-        var left = (_PANEL_WIDTH - width) / 2 - 1;
-        var top = 15;
-        context.fillText(text, left, top);
-        context.fillText("dm", 12, top + 13);
+    _dragStep: function(x, y) {
+        var me = this;
+        if (!me._dragging)
+            return;
 
-        var offset = context.measureText("dm").width;
-        context.font = "7px Verdana";
-        context.textBaseLine = 'top';
-        context.fillText('3', 12 + offset, top + 10);
+        var left = x - me._dragging.x,
+            top = y - me._dragging.y;
+
+        left = __shrink(left, me._w * DELTA);
+        top = __shrink(top, me._h * DELTA);
+
+        me._translate = { left: left, top: top };
+
+        me._clear();
+        me._setCanvasTranslate();
+
+        me._renderMesh();
+        me._renderBorders();
+        me._renderMarker();
+    },
+
+    _dragStop: function() {
+        var me = this;
+        if (!me._dragging)
+            return;
+
+        me._dragging = null;
+        me._redrawAllAreas();
+        me._setTouchTranslate();
+    },
+
+    _setCanvasTranslate: function() {
+        var me = this;
+        me._context.setTransform(
+            me._scale, 0, 0, me._scale, // marker can be already scaled
+            me._translate.left, me._translate.top // and moved
+        );
+    },
+
+    _setTouchTranslate: function() {
+        var me = this;
+        me._touch.css({
+            left: me._translate.left - me._w * DELTA + me._left,
+            top: me._translate.top - me._h * DELTA
+        });
+    },
+
+    resetMesh: function() {
+        var me = this;
+
+        me._hiding = false;
+        me._shifting = false;
+        me._dragging = false;
+        me._scale = 1;
+        me._resize = 1;
+        me._translate = { left: 0, top: 0 };
+        me._setCanvasTranslate();
+        me._setTouchTranslate();
+
+        me._canvas.show();
+        me._touch.show();
+        me._render();
+
+        $.each(me._BUTTONS, function() {
+            this.state = false;
+        });
+        me._renderPanel();
+        me._renderSelectedCount();
+    },
+
+    toggleResize: function(index) {
+        var me = this;
+        me._emptySelection();
+        me._resize = me._resize / 2;
+        if (me._resize < MIN_SCALE)
+            me._resize = 1;
+        me._renderButton(index);
+        me._render();
+    },
+
+    _renderResizeButton: function(button, left, top, size) {
+        var me = this;
+
+        __resetShadow(me._panel);
+        me._panel.fillStyle = 'white';
+        me._panel.beginPath();
+        me._panel.fillRect(left, top, size, size);
+
+        me._panel.font = "13px Verdana bold";
+        me._panel.textBaseLine = 'center';
+        me._panel.fillStyle = 'red';
+
+        var text = "1:" + 1 / me._resize / me._resize,
+            width = me._panel.measureText(text).width;
+        left = left + (size - width) / 2;
+        me._panel.fillText(text, left, top + size / 2 + 5);
+    },
+
+    chooseImage: function() {
+        // select new file: todo, currently reload page
+        window.location.reload();
+    },
+/*
+    toggleScale: function(index) {
+        var me = this;
+        if (me._shifting) {
+            me.status("Turn off shifting to scale");
+            return;
+        }
+
+        me._scaling = !me._scaling;
+
+        me._BUTTONS[index].state = me._scaling;
+        me._renderButton(index);
+
+        if (me._scaling) {
+            me._touch.hide();
+            me._canvas.css({cursor: 'resize'});
+        } else {
+            if (!me._hiding)
+                me._touch.show();
+            me._canvas.css({cursor: 'default'});
+        }
+    },
+
+    _findCenter: function() {
+        var me = this;
+        var points = me._marker,
+            lineA = __line(points[0], points[2]),
+            lineB = __line(points[1], points[3]),
+            cross = __cross(lineA, lineB);
+        return cross;
+    },
+
+    _scaleStart: function(x, y) {
+        var me = this;
+        if (!me._scaling)
+            return;
+
+//        me._center = me._findCenter(); // todo: check translation from shifting
+//        me._context.translate(me._center.x, me._center.y);
+        me._scale = 1;
+        me._origin = {x: x, y: y};
+    },
+
+    _scaleStep: function(x, y) {
+        var me = this;
+        if (!me._scaling || !me._origin)
+            return;
+
+        var delta = (y - me._origin.y) / me._h * DELTA,
+            scale = 1 - delta;
+        if (scale > 2)
+            scale = 2;
+        else if (scale < 0.5)
+            scale = 0.5;
+
+        if (scale == me._scale)
+            return;
+        me._scale = scale;
+        console.debug(delta, me._scale);
+
+        me._clear();
+        me._setCanvasTranslate();
+        me._renderMesh();
+        me._renderBorders();
+        me._renderMarker();
+    },
+
+    _scaleStop: function() {
+
+    },
+*/
+
+    status: function(text) {
+        var me = this;
+        me._status.empty().text(text);
     }
 
 });
@@ -422,42 +1086,68 @@ function __resetShadow(context) {
 
 // return point object
 function __point(x, y) {
-    return {x: x, y: y};
+    return { x: x, y: y };
 }
 
 function __move(point, vector) {
     return { x: point.x + vector.x, y: point.y + vector.y };
 }
 
+function __inside(points, min, max) {
+    for (var i = 0; i < points.length; i++) {
+        var point = points[i];
+        if (point.x > min.x && point.x < max.x &&
+            point.y > min.y && point.y < max.y)
+            return true;
+    }
+    return false;
+}
+
 // return line object, calculated by segment between two points,
 // contains segment itself, canonical and angle formula coefficients
 function __line(pA, pB) {
-    var a = pB.x - pA.x;
-    var b = pA.y - pB.y;
-    var c = pA.x * pB.y - pA.y * pB.x;
+    var a = pB.x - pA.x,
+        b = pA.y - pB.y,
+        c = pA.x * pB.y - pA.y * pB.x,
+        v = __near(pA.x, pB.x, 0.00000001);
     return {
         pA: pA, pB: pB,
         a: a, b: b, c: c, // ay + bx + c = 0
-        vertical: pA.x == pB.x,
-        x: pA.x == pB.x? pA.x : null, // vertical: x = pA.x
+        vertical: v,
+        x: v? pA.x : null,
         k: -b/a, d: -c/a // !vertical? y = kx + d
     };
 }
 
 // check that two lines are parallel
 function __parallel(lA, lB) {
-    return lA.vertical && lB.vertical || lA.k == lB.k;
+    if (!lA || !lB)
+        return null;
+    return (lA.vertical && lB.vertical) || lA.k == lB.k;
+}
+
+// line parallel with line passed through point
+function __linePoint(line, point) {
+    var point2 = {
+        x: point.x + (line.pB.x - line.pA.x),
+        y: point.y + (line.pB.y - line.pA.y)
+    };
+    return __line(point, point2);
 }
 
 // return intersection point for two lines or null
 function __cross(lA, lB) {
+    if (!lA || !lB)
+        return null;
     if (__parallel(lA, lB))
         return null;
 
     if (lA.vertical)
-        return {x: lA.x, y: lB.k * lA.x + lB.d };
+        return {x: lA.x, y: __lineY(lB, lA.x) };
+//        return {x: lA.x, y: lB.k * lA.x + lB.d };
     if (lB.vertical)
-        return {x: lB.x, y: lA.k * lB.x + lA.d };
+        return {x: lB.x, y: __lineY(lA, lB.x) };
+//        return {x: lB.x, y: lA.k * lB.x + lA.d };
 
     var x = (lB.d - lA.d) / (lA.k - lB.k);
     var y = lA.k * x + lA.d;
@@ -471,14 +1161,7 @@ function __crossSegment(lA, lB) {
     if (!cross)
         return null;
 
-    var minX = lB.pA.x < lB.pB.x? lB.pA.x : lB.pB.x;
-    var maxX = lB.pA.x < lB.pB.x? lB.pB.x : lB.pA.x;
-    var minY = lB.pA.y < lB.pB.y? lB.pA.y : lB.pB.y;
-    var maxY = lB.pA.y < lB.pB.y? lB.pB.y : lB.pA.y;
-    var hit =
-        cross.x >= minX && cross.x <= maxX &&
-        cross.y >= minY && cross.y <= maxY;
-    return hit? cross : null;
+    return __pointOnLine(cross, lB);
 }
 
 // return X coordinate of line point for another coordinate is given
@@ -491,6 +1174,38 @@ function __lineX(line, y) {
 // return Y coordinate of line point for another coordinate is given
 function __lineY(line, x) {
     return line.vertical? null : line.k * x + line.d;
+}
+
+function __length(pointA, pointB) {
+    if (!pointA || !pointB)
+        return 0;
+    return Math.sqrt(
+        Math.pow(pointA.x - pointB.x, 2) +
+        Math.pow(pointA.y - pointB.y, 2)
+    );
+}
+
+// point on line within segment
+function __pointOnLine(point, line) {
+    var minX = line.pA.x < line.pB.x? line.pA.x : line.pB.x;
+    var maxX = line.pA.x < line.pB.x? line.pB.x : line.pA.x;
+    var minY = line.pA.y < line.pB.y? line.pA.y : line.pB.y;
+    var maxY = line.pA.y < line.pB.y? line.pB.y : line.pA.y;
+    var hit =
+        (point.x >= minX && point.x <= maxX || __near(maxX, minX) && __near(point.x, minX)) &&
+        (point.y >= minY && point.y <= maxY || __near(maxY, minY) && __near(point.y, minY));
+    return hit? point : null;
+}
+
+function __shrink(coord, delta) {
+    if (coord > delta) return delta;
+    if (coord < -delta) return -delta;
+    return coord;
+}
+
+function __near(a, b, delta) {
+    if (!delta) delta = 0.01;
+    return Math.abs(a - b) < delta;
 }
 
 })( jQuery );

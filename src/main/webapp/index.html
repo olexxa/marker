@@ -1,56 +1,27 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <html>
 <head>
-    <title></title>
-
+    <title>iCarSurveyor</title>
     <link rel="stylesheet" href="css/main.css"/>
-
     <script src="js/jquery/jquery-2.1.0.js" language="JavaScript"></script>
     <script src="js/jquery.ui/jquery.ui.core.js" language="JavaScript"></script>
     <script src="js/jquery.ui/jquery.ui.widget.js" language="JavaScript"></script>
+    <script src="js/ui.fileupload/ui.fileupload.js" language="JavaScript"></script>
     <script src="js/ui.hover/ui.hover.js" language="JavaScript"></script>
-
-    <script language="JavaScript"><!--
-        $(function() {
-            var options =
-            $("#hover").hover({
-                image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 1"},
-                marker: [ {x: 190, y: 47}, {x: 238, y: 28}, {x: 276, y: 46}, {x: 237, y: 68}],
-                flags: {
-                    borderColor: 'white', meshColor: 'yellow',
-                    areaSelectedColor: 'RGBA(255, 0, 0, 0.3)',
-                    panelBackground: '#FFFF40'
-                }
-            });
-            $("#hover2").hover({
-                image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 2"},
-                marker: [ {x: 100, y: 47}, {x: 138, y: 28}, {x: 276, y: 46}, {x: 237, y: 68}],
-                square: 2,
-                flags: {borderColor: 'gold', meshColor: 'lightgreen',
-                    markerBorderColor: 'red', markerBorderWidth: 3,
-                    areaSelectedColor: 'RGBA(200, 180, 0, 0.3)',
-                    panelAlign: 'left', panelBackground: '#90D090'
-                }
-            });
-            $("#hover3").hover({
-                image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 3"},
-                marker: [ {x: 100, y: 47}, {x: 100, y: 28}, {x: 176, y: 28 }, {x: 176, y: 47}],
-                square: 120,
-                flags: {
-                    borderColor: '#800000', meshColor: 'lightblue', border: '1px dotted black'
-                }
-            });
-        });
-    //--></script>
+    <script src="js/marker.js" language="javascript"></script>
 </head>
 <body>
-<table cellSpacing="10">
-<tr>
-    <td><div id="hover"></div></td>
-    <td><div id="hover2"></div></td>
-</tr><tr>
-    <td><div id="hover3"></div></td>
-</tr>
-</table>
+
+    <div id="uploader"></div>
+    <div id="hover"></div>
+    <div id="status">loading...</div>
+
+    <div id="left_checker"><img src="img/back_chess_left.png" alt="" border="0" draggable="false"/></div>
+    <div id="right_checker"><img src="img/back_chess_right.png" alt="" border="0" draggable="false"/></div>
+
+    <div id="developer">
+        <span>iCarSurveyor</span><br/>
+        <span class="copyright">SoftEdge &copy; 2014</span>
+    </div>
+
 </body>
 </html>

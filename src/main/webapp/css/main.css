@@ -1,1 +1,45 @@
-@import url("ui.hover/ui.hover.css");
+body {
+    background-color: #ff8900;
+    vertical-align: middle;
+    text-align: center;
+}
+
+#status {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    border: thin solid #CCCCCC;
+    padding: 6px 18px 6px 18px;
+    background: #444444;
+    color: white;
+    font-size: 9px;
+    font-family: Verdana,sans-serif;
+}
+
+#developer {
+    position: fixed;
+    bottom: 10px;
+    right: 20px;
+    color: white;
+    font-family: Verdana,sans-serif;
+    text-align: right;
+}
+.copyright {
+    font-size: 8px;
+}
+
+#left_checker, #right_checker {
+    position: fixed;
+    z-index: -1000;
+    top: 50%;
+    margin-top: -37px;
+    background-repeat: no-repeat;
+}
+#left_checker {
+    left: 10px;
+    background: url('../img/back_chess_left.png') left;
+}
+#right_checker {
+    right: 10px;
+    background: url('../img/back_chess_right.png') right;
+}
