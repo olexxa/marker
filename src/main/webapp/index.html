@@ -5,18 +5,34 @@
     <script src="js/jquery/jquery-2.1.0.js" language="JavaScript"></script>
     <script src="js/jquery.ui/jquery.ui.core.js" language="JavaScript"></script>
     <script src="js/jquery.ui/jquery.ui.widget.js" language="JavaScript"></script>
-    <script src="js/ui.fileupload/ui.fileupload.js" language="JavaScript"></script>
     <script src="js/ui.hover/ui.hover.js" language="JavaScript"></script>
-    <script src="js/marker.js" language="javascript"></script>
+    <script src="js/ui.hover/ui.marker.js" language="JavaScript"></script>
+    <script><!--
+        $(function() {
+
+            $('#image').click(function() {
+                $(this).toggle();
+                $('#marker').marker({
+                    box: { w: 600, h: 400 },
+                    imageId: 'photo',
+                    action: 'save.url',
+                    appearance: {}
+                });
+            });
+
+        });
+    //-->
+    </script>
 </head>
 <body>
 
-    <div id="uploader"></div>
-    <div id="hover"></div>
-    <div id="status">loading...</div>
+    <div id="image">
+        <img id="photo" src="exm/test.png" width="300" border="0"/>
+        <br/>
+        Click this image to start "iCarSurveyor".
+    </div>
 
-    <div id="left_checker"><img src="img/back_chess_left.png" alt="" border="0" draggable="false"/></div>
-    <div id="right_checker"><img src="img/back_chess_right.png" alt="" border="0" draggable="false"/></div>
+    <div id="marker"></div>
 
     <div id="developer">
         <span>iCarSurveyor</span><br/>

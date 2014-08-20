@@ -1,13 +1,7 @@
 $(function() {
 
-    var hoverOpts = {
-        borderColor: 'white',
-        mesh: {
-            color: 'yellow'
-        },
-        panel: {
-            background: '#FFFF40'
-        }
+    var opts = {
+        panel: { align : 'left' }
     };
 
     var ready = false;
@@ -24,24 +18,24 @@ $(function() {
     $('#uploader').uploader({
         status: $('#status'),
         hover: {
-//                    box: { w: $(window).width() - 100, h: $(window).height() - 80 },
+//          box: { w: $(window).width() - 100, h: $(window).height() - 80 },
             box: { w: 801, h: 601 },
             onMarkers: function(ms) {
                 markers = ms;
                 callback();
             },
             onImage: function(image, scale) {
+                var options = $.extend(opts, {
+                    image: {
+                        src: image,
+                        width: scale.scaled.w,
+                        height: scale.scaled.h,
+                        ratio: scale.ratio
+                    }
+                });
                 $('#hover')
                     .show()
-                    .hover({
-                        flags: hoverOpts,
-                        image: {
-                            src: image,
-                            width: scale.scaled.w,
-                            height: scale.scaled.h,
-                            ratio: scale.ratio
-                        }
-                    });
+                    .hover(options);
                 ready = true;
             }
         }

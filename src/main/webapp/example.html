@@ -10,49 +10,44 @@
     <script language="JavaScript"><!--
         $(function() {
             $("#hover").hover({
-                image: { ratio: 4.1297, width: 300, height: 200 },
-                panel: { background: '#FFFF40', align: 'right' }
+                image: { src: 'file:///home/olexa/test.png', width: 400, height: 300 },
+                panel: { align: 'right' },
+                debug: true
             });
             $("#hover2").hover({
-                image: { width: 300, height: 200},
-                panel: { background: '#40FFFF', align: 'left' }
+                panel: { align: 'left' },
+                debug: true
             });
             $("#hover3").hover({
-                image: { width: 300, height: 200},
-                panel: { background: '#40FFFF', align: 'top' }
+                panel: { align: 'top' },
+                debug: true
             });
             $("#hover4").hover({
-                image: { width: 300, height: 200},
-                panel: { background: '#40FFFF', align: 'bottom' }
+                panel: { align: 'bottom' },
+                debug: true
             });
 //            $("#hover5").hover({
-//                image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 4"},
-//                flags: {
-//                    borderColor: '#808000', meshColor: 'purple', border: '1px dotted black'
-//                }
+//                debug: true
 //            });
 //            $("#hover6").hover({
-//                image: {src: "img/strees2.jpg", width: 354, height: 194, alt: "Photo 4"},
-//                flags: {
-//                    borderColor: '#808000', meshColor: 'orange', border: '1px dotted black'
-//                }
+//                debug: true
 //            });
 
             $(function() {
 //                $("#hover").data('ui-hover').markers([
-//                    {"id":213,"points":[
-//                        {"x":280.0,"y":787.0},{"x":170.0,"y":849.0},
-//                        {"x":109.0,"y":738.0},{"x":219.0,"y":678.0}
-//                    ]},{"id":228,"points":[{
-//                        "x":666.0,"y":482.0},{"x":595.0,"y":547.0},
-//                        {"x":530.0,"y":476.0},{"x":601.0,"y":411.0}
+//                    {id:213,"points":[
+//                        {x:280.0,y:787.0},{x:170.0,y:849.0},
+//                        {x:109.0,y:738.0},{x:219.0,y:678.0}
+//                    ]},{id:228,"points":[{
+//                        x:666.0,y:482.0},{x:595.0,y:547.0},
+//                        {x:530.0,y:476.0},{x:601.0,y:411.0}
 //                    ]}
 //                ]);
                 $("#hover").data('ui-hover').markers([
                     { id: 1, points: [
 //                        {x: 195.0, y: 145.0}, {x: 238.0, y: 145.0},
 //                        {x: 244.0, y: 170.0}, {x: 189.0, y: 170.0}
-                        {"x":458.0,"y":620.0},{"x":561.0,"y":620.0},{"x":576.0,"y":730.0},{"x":444.0,"y":731.0}
+                        {x:458.0,y:620.0},{x:561.0,y:620.0},{x:576.0,y:730.0},{x:444.0,y:731.0}
                     ]}
                 ]);
                 $("#hover2").data('ui-hover').markers([
@@ -66,9 +61,9 @@
                     ]}
                 ]);
                 $("#hover4").data('ui-hover').markers([
-                    {"id":213, "points": [
-                        {"x": 280.0, "y": 187.0}, {"x": 170.0, "y": 249.0},
-                        {"x": 109.0, "y": 138.0}, {"x": 219.0, "y": 078.0}
+                    {id: 213, points: [
+                        {x: 280.0, y: 187.0}, {x: 170.0, y: 249.0},
+                        {x: 109.0, y: 138.0}, {x: 219.0, y:  78.0}
                     ]}
                 ]);
 //                $("#hover5").data('ui-hover').markers([
@@ -87,16 +82,17 @@
     //-->
     </script>
 </head>
-<body>
+<body style="background: gray;">
 <table cellSpacing="10">
 <tr>
     <td><div id="hover"></div></td>
     <td><div id="hover2"></div></td>
-    <td><div id="hover3"></div></td>
 </tr><tr>
+    <td><div id="hover3"></div></td>
     <td><div id="hover4"></div></td>
-    <td><div id="hover5"></div></td>
-    <td><div id="hover6"></div></td>
+<!--</tr><tr>-->
+    <!--<td><div id="hover5"></div></td>-->
+    <!--<td><div id="hover6"></div></td>-->
 </tr>
 </table>
 </body>

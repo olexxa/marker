@@ -3,6 +3,21 @@
 const
     MSG_NOT_SUPPORTED = 'Need browser with canvas support',
     MSG_AREA_ALT = 'Switch area',
+    MSG_START = '... loading ...',
+    MSG_READY = 'ready',
+    MSG_NO_MARKER = 'No markers detected',
+    MSG_BAD_PERSPECTIVE = 'Bad marker perspective',
+    MSG_DM = "dm",
+
+    MSG_NEXT_MARKER = 'Next marker',
+    MSG_TOGGLE_SELECTION = 'Select/deselect all',
+    MSG_NEXT_COLOR = 'Choose selection highlite color',
+    MSG_TOGGLE_MESH = 'Show/hide mesh',
+    MSG_SHIFT_MESH = 'Shift mesh',
+    MSG_RESIZE_MESH = 'Resize mesh',
+    MSG_RESET_MESH = 'Reset mesh',
+    MSG_SEND = 'Save',
+    MSG_REUPLOAD = 'Change photo',
 
     // Canvas can be shifted by 1/3 of its original size
     DELTA = 0.4,
@@ -19,14 +34,6 @@ const
     MIN_SCALE = 1/2;
 
 const
-    _CSS_NO_BORDER = { border: '0px !important', padding: '0px !important', margin: '0px !important' },
-    _CSS_STATUS = {
-        backgroundColor: '#333333', border: 'thin solid white', color: 'white',
-        position: 'absolute', left: 0, height: _STATUS_HEIGHT - 2, minHeight: _STATUS_HEIGHT - 2,
-        fontFamily: 'Verdana', fontSize: '14px', textAlign: 'center', verticalAlign: 'middle'
-    },
-
-    // TODO: replace with 40x40, this one is 1x1 and not optimal for scaling
     _IMG_TRANSPARENT = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
 
     _LEFT = 'LEFT',
@@ -34,7 +41,16 @@ const
     _TOP = 'top',
     _BOTTOM = 'bottom',
     _PANEL_SIZE = 42,
-    _STATUS_HEIGHT = 24
+    _STATUS_HEIGHT = 18,
+
+    _CSS_NO_BORDER = { border: '0px !important', padding: '0px !important', margin: '0px !important' },
+    _CSS_STATUS = {
+        backgroundColor: '#333333', // border: 'thin solid white',
+        color: 'white',
+        position: 'absolute', left: 0, height: _STATUS_HEIGHT, minHeight: _STATUS_HEIGHT,
+        padingTop: 4,
+        fontFamily: 'Courier', fontSize: '13px', textAlign: 'center', verticalAlign: 'middle'
+    }
 ;
 
 $.widget( 'ui.hover', {
@@ -42,37 +58,42 @@ $.widget( 'ui.hover', {
     _markerIndex: 0,
     _markers: [],
     _marker: [],
+    _fillColorIndex: 0,
 
     options: {
         version: '1.0.0',
+        debug: false,
         square: 1,
         image: {
-            src: _IMG_TRANSPARENT, width: 100, height: 100, alt: 'Photo'
+            src: _IMG_TRANSPARENT, width: 400, height: 400, alt: 'Photo'
         },
-        panel: {
-            align: _TOP,
-            background: '#B0B0C0'
-        },
-        button: {
+        widget: {
             background: 'white',
-            shadowColor: "black"
+            renderBorder: true,
+            border: 'thin solid black'
         },
         mesh: {
             border: 'white',
             color: 'yellow'
         },
-        flags: {
-            renderBorder: true,
-            border: 'thin solid black',
-            background: 'RGBA(180, 255, 100, 0.1)',
-            markerBorderColor: 'blue', markerBorderWidth: 2,
-            fillColors: [
+        marker: {
+            square: 1,
+            border: 'blue',
+            markerBorderWidth: 2,
+            fills: [
                 'RGBA(0, 180, 180, 0.5)',
                 'RGBA(255, 0, 0, 0.5)',
                 'RGBA(200, 180, 0, 0.5)',
                 'RGBA(0, 0, 255, 0.5)'
-            ],
-            delta: null
+            ]
+        },
+        panel: {
+            align: _TOP,
+            background: '#FFFF80'
+        },
+        button: {
+            background: 'white',
+            shadowColor: "black"
         }
      },
 
@@ -175,24 +196,29 @@ $.widget( 'ui.hover', {
             .attr('width', width)
             .attr('height', _STATUS_HEIGHT)
             .css(_CSS_STATUS)
-            .css({ top: height, minWidth: width, width: width });
+            .css({ top: height, minWidth: width, width: width, zIndex: 1000 });
 
         var backHPos = !me._horizontalPanel && leftPanel? 'right' : 'left',
-            backVPos = me._horizontalPanel && topPanel? 'bottom' : 'top';
+            backVPos = me._horizontalPanel && topPanel? _PANEL_SIZE + 'px' : 'top';
         me.element.empty()
-            .css({
-                backgroundImage: 'url(' + me.options.image.src + ')',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: backHPos + ' ' + backVPos,
-                border: me.options.flags.border,
-//                position: 'relative'
+            .css(me.options.debug? {
+                position: 'relative'
+            } : {
                 position: 'absolute', overflow: 'hidden',
                 top: '50%', left: '50%',
                 marginLeft: -width / 2,
-                marginTop: -height / 2
+                marginTop: -(_STATUS_HEIGHT + height) / 2
+            })
+            .css({
+                backgroundColor: me.options.widget.background,
+                backgroundImage: 'url(' + me.options.image.src + ')',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: backHPos + ' ' + backVPos,
+                border: me.options.widget.border,
             })
             .width(width)
-            .height(height);
+            .height(height + _STATUS_HEIGHT);
+
         me.element.append([
             me._canvas, me._touch, me._map,
             panel, panelTouch, me._panelMap,
@@ -201,15 +227,21 @@ $.widget( 'ui.hover', {
 
         me._context = document.getElementById(me._id + 'canvas').getContext('2d');
         me._panel = document.getElementById(me._id + 'panel').getContext('2d');
+
+        me.status(MSG_START);
     },
 
     // perform calculations and rendering
     markers: function(markers) {
         var me = this;
-        if (!markers || markers.length == 0) {
-            me._noMarkers();
+
+        var found = markers && markers.length > 0,
+            text = (found? markers.length : "no") +
+                " marker" + (found && markers.length == 1 ? "" : "s") +
+                " found";
+        me.status(text);
+        if (!found)
             return;
-        }
 
         me._scaleMarkers(markers);
         me._markers = markers;
@@ -230,11 +262,6 @@ $.widget( 'ui.hover', {
                 point.y = point.y / ratio;
             });
         });
-    },
-
-    _noMarkers: function() {
-        var me = this;
-        me.status('No markers detected');
     },
 
     _render: function() {
@@ -289,7 +316,7 @@ $.widget( 'ui.hover', {
         var vanishV = __cross(vLine1, vLine2),
             vanishH = __cross(hLine1, hLine2);
         if (vanishV && vanishH && me._insideVisible([vanishV]) && me._insideVisible([vanishH]))
-            me.status('Bad marker perspective');
+            me.status(MSG_BAD_PERSPECTIVE);
 
         // rendering area (0,0)-(w,h)
         // surronunded by extra areas for moving
@@ -530,7 +557,7 @@ $.widget( 'ui.hover', {
 
     getSelectedSquare: function() {
         var me = this;
-        return "" + me.countAreas() * (me._resize * me._resize) * me.options.square;
+        return "" + me.countAreas() * (me._resize * me._resize) * me.options.marker.square;
     },
 
     _renderSelectedCount: function() {
@@ -548,12 +575,39 @@ $.widget( 'ui.hover', {
         var left = (_PANEL_SIZE - width) / 2;
         var top = me._horizontalPanel? 18 : 16;
         context.fillText(square, left, top);
-        context.fillText("dm", 13, top + 13);
+        context.fillText(MSG_DM, 13, top + 13);
 
-        var offset = context.measureText("dm").width;
+        var offset = context.measureText(MSG_DM).width;
         context.font = "7px Verdana";
         context.textBaseLine = 'top';
         context.fillText('2', 13 + offset, top + 10);
+    },
+
+    sendSelection: function() {
+        var me = this;
+        var areas = [];
+        var ratio = me.options.image.ratio;
+        $.each(me._areas, function(index, area) {
+            if (!area.state)
+                return;
+            var points = [];
+            if (!ratio || ratio == 1)
+                points = area.points;
+            else
+                $.each(area.points, function(index, point) {
+                    points.push({
+                        x: Math.round(point.x * ratio),
+                        y: Math.round(point.y * ratio)
+                    })
+                });
+            areas.push({ id: area.index, points: points});
+        });
+        var result = {
+            square: me.getSelectedSquare(),
+            areas: areas
+        };
+        // fixme: send result
+        alert(JSON.stringify(result));
     },
 
     clickArea: function(index) {
@@ -609,7 +663,7 @@ $.widget( 'ui.hover', {
         context.closePath();
 
         if (!me._fillColorIndex) me._fillColorIndex = 0;
-        var color = me.options.flags.fillColors[me._fillColorIndex];
+        var color = me.options.marker.fills[me._fillColorIndex];
 
         context.globalCompositeOperation = area.state? 'source-over' : 'destination-out';
         context.fillStyle = area.state? color : 'white';
@@ -626,11 +680,11 @@ $.widget( 'ui.hover', {
 
     _renderBorders: function() {
         var me = this;
-        if (me.options.flags.renderBorder) {
+        if (me.options.widget.renderBorder) {
             me._context.save();
             me._context.setTransform(1, 0, 0, 1, 0, 0);
 
-            me._context.strokeStyle = me.options.flags.borderColor;
+            me._context.strokeStyle = me.options.widget.border;
 
             me._context.beginPath();
             me._context.moveTo(0, 0);
@@ -649,8 +703,8 @@ $.widget( 'ui.hover', {
         var context = me._context;
         var last = me._marker[me._marker.length - 1];
 
-        context.strokeStyle = me.options.flags.markerBorderColor;
-        context.lineWidth = me.options.flags.markerBorderWidth;
+        context.strokeStyle = me.options.marker.border;
+        context.lineWidth = me.options.marker.borderWidth;
         context.beginPath();
         context.moveTo(last.x, last.y);
         $.each(me._marker, function() {
@@ -718,16 +772,17 @@ $.widget( 'ui.hover', {
     },
 
     _BUTTONS: [
-        { name: 'marker',  src: 'img/btn_marker.png',  alt: 'Next marker',          callback: 'nextMarker',
+        { name: 'marker',  src: 'img/btn_marker.png',  alt: MSG_NEXT_MARKER,       callback: 'nextMarker',
             checkVisible: function(me) { return me._markers.length > 1; } },
-        { name: 'select',  src: 'img/btn_select.png',   alt: 'Toggle selection',     callback: 'toggleSelection' },
-        { name: 'palette', src: 'img/btn_palette.png',  alt: 'Next selection color', callback: 'selectionColor' },
-        { name: 'show',    src: 'img/btn_show.png',     alt: 'Toggle mesh',          callback: 'toggleMesh' },
-        { name: 'shift',   src: 'img/btn_shift.png',    alt: 'Move mesh',            callback: 'toggleShift' },
-        { name: 'resize',                               alt: 'Resize mesh',          callback: 'toggleResize',
+        { name: 'select',  src: 'img/btn_select.png',   alt: MSG_TOGGLE_SELECTION, callback: 'toggleSelection' },
+        { name: 'palette', src: 'img/btn_palette.png',  alt: MSG_NEXT_COLOR,       callback: 'selectionColor' },
+        { name: 'show',    src: 'img/btn_show.png',     alt: MSG_TOGGLE_MESH,      callback: 'toggleMesh' },
+        { name: 'shift',   src: 'img/btn_shift.png',    alt: MSG_SHIFT_MESH,       callback: 'toggleShift' },
+        { name: 'resize',                               alt: MSG_RESIZE_MESH,      callback: 'toggleResize',
             render: function(me, left, top, size) { me._renderResizeButton(this, left, top, size); }},
-        { name: 'reset',   src: 'img/btn_reset.png',    alt: 'Reset mesh',           callback: 'resetMesh' },
-        { name: 'reimage', src: 'img/btn_newphoto.png', alt: 'Upload another image', callback: 'chooseImage' }
+        { name: 'reset',   src: 'img/btn_reset.png',    alt: MSG_RESET_MESH,       callback: 'resetMesh' },
+        { name: 'send',    src: 'img/btn_send.png',     alt: MSG_SEND,             callback: 'sendSelection' },
+        { name: 'reimage', src: 'img/btn_newphoto.png', alt: MSG_REUPLOAD,         callback: 'chooseImage' }
     ],
 
     _renderPanel: function() {
@@ -782,21 +837,18 @@ $.widget( 'ui.hover', {
                 me._panel.drawImage(img, left, top, size, size);
                 if (button.state) {
                     var data = me._panel.getImageData(left, top, size, size);
-                    for (var i = 0; i < data.data.length; i += 4) {
-                        // invert everything but red channel
-                        data.data[i]     = data.data[i]; // R
-                        data.data[i + 1] = 255 - data.data[i + 1]; // G
-                        data.data[i + 2] = 255 - data.data[i + 2]; // B
-                        data.data[i + 3] = 255; // Alpha
-                    }
+                    data = me._invertImage(data);
                     me._panel.putImageData(data, left, top);
                 }
 
             };
             img.src = button.src;
         }
-        if (button.render)
+        if (button.render) {
+            me._panel.save();
             button.render(me, left, top, size);
+            me._panel.restore();
+        }
 
         var points = [
             {x: left, y: top},
@@ -805,6 +857,17 @@ $.widget( 'ui.hover', {
             {x: left, y: top + size}
         ];
         me._renderArea(me._panelMap, points, index, button.callback, button.alt);
+    },
+
+    _invertImage: function(data) {
+        for (var i = 0; i < data.data.length; i += 4) {
+            // invert everything but red channel
+            data.data[i]     = data.data[i]; // R
+            data.data[i + 1] = 255 - data.data[i + 1]; // G
+            data.data[i + 2] = 255 - data.data[i + 2]; // B
+            data.data[i + 3] = 255; // Alpha
+        }
+        return data;
     },
 
     toggleSelection: function() {
@@ -816,7 +879,8 @@ $.widget( 'ui.hover', {
     selectionColor: function(index) {
         var me = this;
 
-        //me._panel.fillStyle = me.options.flags.fillColors[me._fillColorIndex];
+        // todo: button color as background
+        //me._panel.fillStyle = me.options.marker.fills[me._fillColorIndex];
         //me._renderButton(index);
 
         var toggled = [];
@@ -833,7 +897,7 @@ $.widget( 'ui.hover', {
             }
         });
         // now we can change color and redraw
-        if (++me._fillColorIndex >= me.options.flags.fillColors.length)
+        if (++me._fillColorIndex >= me.options.marker.fills.length)
             me._fillColorIndex = 0;
 
         $.each(toggled, function() {
@@ -936,8 +1000,8 @@ $.widget( 'ui.hover', {
     _setTouchTranslate: function() {
         var me = this;
         me._touch.css({
-            left: me._translate.left - me._w * DELTA + me._left,
-            top: me._translate.top - me._h * DELTA
+            left: me._left + me._translate.left - me._w * DELTA,
+            top:  me._top   + me._translate.top  - me._h * DELTA
         });
     },
 
