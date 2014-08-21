@@ -414,7 +414,7 @@ $.widget( 'ui.hover', {
             var c1 = origin.vertical? Math.PI / 2 : Math.atan(origin.k);
             var c2 = line.vertical? Math.PI / 2 : Math.atan(line.k);
             if (!origin.vertical && !line.vertical) {
-                var dk = Math.abs(c1 - c2);
+                var dk = Math.abs(c1) - Math.abs(c2);
                 if (dk > MAX_ANGLE)
                     hit = false;
             }
