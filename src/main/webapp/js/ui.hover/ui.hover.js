@@ -50,7 +50,9 @@ const
         position: 'absolute', left: 0, height: _STATUS_HEIGHT, minHeight: _STATUS_HEIGHT,
         padingTop: 4,
         fontFamily: 'Courier', fontSize: '13px', textAlign: 'center', verticalAlign: 'middle'
-    }
+    },
+
+    CONTEXT_PATH = ""; //"/";
 ;
 
 $.widget( 'ui.hover', {
@@ -214,7 +216,7 @@ $.widget( 'ui.hover', {
                 backgroundImage: 'url(' + me.options.image.src + ')',
                 backgroundRepeat: 'no-repeat',
                 backgroundPosition: backHPos + ' ' + backVPos,
-                border: me.options.widget.border,
+                border: me.options.widget.border
             })
             .width(width)
             .height(height + _STATUS_HEIGHT);
@@ -772,17 +774,55 @@ $.widget( 'ui.hover', {
     },
 
     _BUTTONS: [
-        { name: 'marker',  src: 'img/btn_marker.png',  alt: MSG_NEXT_MARKER,       callback: 'nextMarker',
-            checkVisible: function(me) { return me._markers.length > 1; } },
-        { name: 'select',  src: 'img/btn_select.png',   alt: MSG_TOGGLE_SELECTION, callback: 'toggleSelection' },
-        { name: 'palette', src: 'img/btn_palette.png',  alt: MSG_NEXT_COLOR,       callback: 'selectionColor' },
-        { name: 'show',    src: 'img/btn_show.png',     alt: MSG_TOGGLE_MESH,      callback: 'toggleMesh' },
-        { name: 'shift',   src: 'img/btn_shift.png',    alt: MSG_SHIFT_MESH,       callback: 'toggleShift' },
-        { name: 'resize',                               alt: MSG_RESIZE_MESH,      callback: 'toggleResize',
-            render: function(me, left, top, size) { me._renderResizeButton(this, left, top, size); }},
-        { name: 'reset',   src: 'img/btn_reset.png',    alt: MSG_RESET_MESH,       callback: 'resetMesh' },
-        { name: 'send',    src: 'img/btn_send.png',     alt: MSG_SEND,             callback: 'sendSelection' },
-        { name: 'reimage', src: 'img/btn_newphoto.png', alt: MSG_REUPLOAD,         callback: 'chooseImage' }
+        {
+            src: 'img/btn_marker.png',
+            alt: MSG_NEXT_MARKER,
+            callback: 'nextMarker',
+            checkVisible: function(me) {
+                return me._markers.length > 1;
+            }
+        }, {
+            name: 'select',
+            alt: MSG_TOGGLE_SELECTION,
+            callback: 'toggleSelection'
+        }, {
+            name: 'palette',
+            alt: MSG_NEXT_COLOR,
+            callback: 'selectionColor'
+        }, {
+            name: 'show',
+            toggle: true,
+            alt: MSG_TOGGLE_MESH,
+            callback: 'toggleMesh'
+        }, {
+            name: 'shift',
+            toggle: true,
+            alt: MSG_SHIFT_MESH,
+            callback: 'toggleShift'
+        }, {
+            name: 'resize',
+            alt: MSG_RESIZE_MESH,
+            callback: 'toggleResize',
+            //render: function(me, left, top, size) {
+            //    me._renderResizeButton(this, left, top, size);
+            //}
+            calculateName: function(me) {
+                return "grid" + Math.round(1 / me._resize / me._resize);
+            }
+        }, {
+            name: 'reset',
+            alt: MSG_RESET_MESH,
+            callback: 'resetMesh'
+        }, {
+            name: 'save',
+            alt: MSG_SEND,
+            callback: 'sendSelection'
+        }, {
+            name: 'reload',
+//            src: 'img/btn/btnReload_enabled_se.png',
+            alt: MSG_REUPLOAD,
+            callback: 'chooseImage'
+        }
     ],
 
     _renderPanel: function() {
@@ -823,26 +863,37 @@ $.widget( 'ui.hover', {
         var me = this;
         var button = me._BUTTONS[index];
         var size = _PANEL_SIZE - 13,
-            off = button.position * (size + 10),
+            off = button.position * (size + 7),
             top = me._horizontalPanel? 6: 38 + off,
             left = me._horizontalPanel? 42 + off : 6;
 
-        me._panel.beginPath();
-        me._panel.rect(left - 1, top - 1, size + 2, size + 2);
-        me._panel.fill();
+        //me._panel.beginPath();
+        //me._panel.rect(left - 1, top - 1, size + 2, size + 2);
+        //me._panel.fill();
 
-        if (button.src) {
+        var src = button.src;
+        if (!src) {
+            src = CONTEXT_PATH + "img/btn/";
+            if (button.calculateName) {
+                src += button.calculateName(me);
+            } else {
+                if (button.toggle)
+                    src += button.state ? 'on/' : 'off/';
+                src += button.name;
+            }
+            src += ".png";
+        }
+        if (src)  {
             var img = new Image();
             img.onload = function() {
                 me._panel.drawImage(img, left, top, size, size);
-                if (button.state) {
-                    var data = me._panel.getImageData(left, top, size, size);
-                    data = me._invertImage(data);
-                    me._panel.putImageData(data, left, top);
-                }
-
+                //if (button.state) {
+                //    var data = me._panel.getImageData(left, top, size, size);
+                //    data = me._invertImage(data);
+                //    me._panel.putImageData(data, left, top);
+                //}
             };
-            img.src = button.src;
+            img.src = src;
         }
         if (button.render) {
             me._panel.save();
