@@ -1,7 +1,5 @@
 (function( $, undefined ) {
 
-    'use strict';
-
     const CONTEXT_PATH = '/',
           MARKER_ACTION = CONTEXT_PATH + 'photo/upload';
 
@@ -28,6 +26,10 @@
         _init: function() {
             var me = this;
             var image = $("#" + me.options.imageId)[0];
+            // DO NOT REMOVE 2 LINES BELOW
+            // They are lazy-initiated by reading
+            me._origin_width = image.width;
+            me._origin_height = image.height;
             __scale(image, me.options.box, function(image, scale) {
                 me._onImage(image, scale);
             });
@@ -65,7 +67,6 @@
                 contentType: false,
                 success: function (markers) {
                     me._ready = true;
-                    console.debug('onMarkers');
                     me._hw.markers(markers)
                 },
                 fail: function (x, t, m) {
