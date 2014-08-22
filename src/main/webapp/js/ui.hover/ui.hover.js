@@ -40,8 +40,9 @@ const
     _RIGHT = 'right',
     _TOP = 'top',
     _BOTTOM = 'bottom',
-    _PANEL_SIZE = 42,
+    _PANEL_SIZE = 37,
     _STATUS_HEIGHT = 18,
+    _BUTTON_SIZE = 24,
 
     _CSS_NO_BORDER = { border: '0px !important', padding: '0px !important', margin: '0px !important' },
     _CSS_STATUS = {
@@ -572,17 +573,18 @@ $.widget( 'ui.hover', {
 
         context.font = "9px Verdana";
         context.textBaseLine = 'center';
-        var square = me.getSelectedSquare();
-        var width = context.measureText(square).width;
-        var left = (_PANEL_SIZE - width) / 2;
-        var top = me._horizontalPanel? 18 : 16;
+        var square = me.getSelectedSquare(),
+            width = context.measureText(square).width,
+            left = (_PANEL_SIZE - width) / 2,
+            top = me._horizontalPanel? 16 : 17,
+            pad = me._horizontalPanel? 11 : 10;
         context.fillText(square, left, top);
-        context.fillText(MSG_DM, 13, top + 13);
+        context.fillText(MSG_DM, pad, top + 13);
 
         var offset = context.measureText(MSG_DM).width;
         context.font = "7px Verdana";
         context.textBaseLine = 'top';
-        context.fillText('2', 13 + offset, top + 10);
+        context.fillText('2', pad + offset, top + pad);
     },
 
     sendSelection: function() {
@@ -862,10 +864,12 @@ $.widget( 'ui.hover', {
     _renderButton: function(index) {
         var me = this;
         var button = me._BUTTONS[index];
-        var size = _PANEL_SIZE - 13,
-            off = button.position * (size + 7),
-            top = me._horizontalPanel? 6: 38 + off,
-            left = me._horizontalPanel? 42 + off : 6;
+        var size = _BUTTON_SIZE,
+            off = button.position * (size + 5),
+            top = me._horizontalPanel? 7: 39 + off,
+            left = me._horizontalPanel? 42 + off : 7;
+
+        console.log(size);
 
         //me._panel.beginPath();
         //me._panel.rect(left - 1, top - 1, size + 2, size + 2);
