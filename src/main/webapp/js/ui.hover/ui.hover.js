@@ -777,7 +777,7 @@ $.widget( 'ui.hover', {
 
     _BUTTONS: [
         {
-            src: 'img/btn_marker.png',
+            name: 'marker',
             alt: MSG_NEXT_MARKER,
             callback: 'nextMarker',
             checkVisible: function(me) {
