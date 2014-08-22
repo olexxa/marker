@@ -785,6 +785,7 @@ $.widget( 'ui.hover', {
             }
         }, {
             name: 'select',
+            toggle: true,
             alt: MSG_TOGGLE_SELECTION,
             callback: 'toggleSelection'
         }, {
@@ -925,10 +926,13 @@ $.widget( 'ui.hover', {
         return data;
     },
 
-    toggleSelection: function() {
+    toggleSelection: function(index) {
         var me = this;
-        var selected = me.countAreas();
-        me._toggleAllAreas(selected == 0);
+        var selected = me.countAreas() == 0;
+        me._toggleAllAreas(selected);
+
+        me._BUTTONS[index].state = selected;
+        me._renderButton(index);
     },
 
     selectionColor: function(index) {
