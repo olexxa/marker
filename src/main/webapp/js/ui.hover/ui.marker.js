@@ -1,7 +1,6 @@
 (function( $, undefined ) {
 
-    const CONTEXT_PATH = '/',
-          MARKER_ACTION = CONTEXT_PATH + 'photo/upload';
+    const MARKER_ACTION = 'photo/upload';
 
     $.widget('ui.marker', {
 
@@ -10,8 +9,8 @@
         options: {
             box: { w: 600, h: 400 },
             imageId: {},
-            action: null,
-            appearance: {}
+            appearance: {},
+            contextPath : ''
         },
 
         _create: function() {
@@ -41,16 +40,20 @@
 
         _onImage: function(image, scale) {
             var me = this;
-            me._hw = me._hover.hover(
-                $.extend(me.options.appearance, {
-                    image: {
-                        src: image,
-                        width: scale.scaled.w,
-                        height: scale.scaled.h,
-                        ratio: scale.ratio
-                    }
-                })
-            ).data('ui-hover');
+            var opts = $.extend(me.options.appearance, {
+                box: me.options.box,
+                image: {
+                    src: image,
+                    width: scale.scaled.w,
+                    height: scale.scaled.h,
+                    ratio: scale.ratio
+                },
+                contextPath: me.options.contextPath,
+                action: me.options.action,
+                callback: me.options.callback
+            });
+            me._hw = me._hover.hover(opts)
+                .data('ui-hover');
         },
 
         _upload: function(image) {
@@ -59,7 +62,7 @@
             data.append("submit", "file");
             data.append('file', image);
             $.ajax({
-                url: MARKER_ACTION,
+                url: me.options.contextPath + MARKER_ACTION,
                 type: 'post',
                 dataType: 'json',
                 data: data,

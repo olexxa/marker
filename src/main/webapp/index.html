@@ -16,7 +16,9 @@
                 $('#marker').marker({
                     box: { w: 600, h: 400 },
                     imageId: 'photo',
+                    contextPath: '/marker/',
                     action: 'save.url',
+                    callback: function() { alert('saved') },
                     appearance: {}
                 });
             });

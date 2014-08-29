@@ -1,38 +1,40 @@
 (function( $, undefined ) {
 
-_CSS_INPUT_FILE = {
-    position: 'absolute', top: 0, left: 0,
-    width: '100%', height: '100%',
-    overflow: 'hidden',
-    margin: 0, padding: 0,
-    opacity: 0, msFilter: 'alpha(opacity=0)',
-    cursor: 'pointer'
-};
-_CSS_BROWSE_HINT = {
-    fontSize: '12px',
-    color: 'white',
-    padding: '2px'
-};
-_CSS_OK = {
-    color: 'white',
-    backgroundColor: '#333333',
-    borderColor: 'white',
-    fontWeight: 'bold'
-};
-_CSS_ERROR = {
-    color: 'red',
-    backgroundColor: 'white',
-    borderColor: 'black',
-    fontWeight: 'normal'
-};
+const
+    _CSS_INPUT_FILE = {
+        position: 'absolute', top: 0, left: 0,
+        width: '100%', height: '100%',
+        overflow: 'hidden',
+        margin: 0, padding: 0,
+        opacity: 0, msFilter: 'alpha(opacity=0)',
+        cursor: 'pointer'
+    },
+    _CSS_BROWSE_HINT = {
+        fontSize: '12px',
+        color: 'white',
+        padding: '2px'
+    },
+    _CSS_OK = {
+        color: 'white',
+        backgroundColor: '#333333',
+        borderColor: 'white',
+        fontWeight: 'bold'
+    },
+    _CSS_ERROR = {
+        color: 'red',
+        backgroundColor: 'white',
+        borderColor: 'black',
+        fontWeight: 'normal'
+    },
+    MARKER_ACTION = 'photo/upload',
 
-_ALT_BROWSE = "- drag image above or click to browse -";
+    _ALT_BROWSE = "- drag image above or click to browse -";
 
 $.widget( 'ui.uploader', {
 
     options: {
         version: '1.0.0',
-        action: '/photo/upload',
+        contextPath: '',
         image_browse_splash: 'img/back_car.png',
         width: 358,
         height: 256
@@ -49,19 +51,20 @@ $.widget( 'ui.uploader', {
             .append([
                 me._form = $('<form method="POST" enctype="multipart/form-data"/>')
                     .attr('id', me._id + 'form')
-                    .attr('action', me.options.action)
+                    .attr('action', me.options.contextPath + MARKER_ACTION)
                     .css({ padding: 0, margin: 0 })
                     .append([
                         $('<div>')
                             .css({ textAlign: 'left', padding: 5 })
                             .append(
-                                $('<img border="0" alt="" src="img/header_upload.png" draggable="false"/>')
-                        ),
+                                $('<img border="0" alt="" draggable="false"/>')
+                                    .attr('src', me.options.contextPath + 'img/header_upload.png')
+                            ),
                         $('<div>')
                             .css({ marginLeft: 7, marginRight: 7, padding: 0, backgroundColor: "#ff8900" })
                             .append([
                                 me._splash = $('<img border="0" draggable="false"/>')
-                                    .attr('src', me.options.image_browse_splash)
+                                    .attr('src', me.options.contextPath + me.options.image_browse_splash)
                                     .attr('alt', _ALT_BROWSE)
                                     .css({ border: "thin dotted #CCCCCC" }),
                                 me._thumb = $('<img border="0" draggable="false" alt=""/>')
@@ -247,7 +250,7 @@ $.widget( 'ui.uploader', {
         data.append('file', file);
         // and send it using ajax
         $.ajax({
-            url: me.options.action,
+            url: me.options.contextPath + MARKER_ACTION,
             type: 'post',
             dataType: 'json',
             data: data,

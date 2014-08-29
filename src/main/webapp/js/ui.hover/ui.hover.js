@@ -18,6 +18,7 @@ const
     MSG_RESET_MESH = 'Reset mesh',
     MSG_SEND = 'Save',
     MSG_REUPLOAD = 'Change photo',
+    MSG_SAVED = 'Saved',
 
     // Canvas can be shifted by 1/3 of its original size
     DELTA = 0.4,
@@ -51,10 +52,7 @@ const
         position: 'absolute', left: 0, height: _STATUS_HEIGHT, minHeight: _STATUS_HEIGHT,
         padingTop: 4,
         fontFamily: 'Courier', fontSize: '13px', textAlign: 'center', verticalAlign: 'middle'
-    },
-
-    CONTEXT_PATH = ""; //"/";
-;
+    };
 
 $.widget( 'ui.hover', {
 
@@ -66,7 +64,11 @@ $.widget( 'ui.hover', {
     options: {
         version: '1.0.0',
         debug: false,
+        contextPath : '',
+        action: '',
+        callback: function() {},
         square: 1,
+        box: {},
         image: {
             src: _IMG_TRANSPARENT, width: 400, height: 400, alt: 'Photo'
         },
@@ -203,14 +205,20 @@ $.widget( 'ui.hover', {
 
         var backHPos = !me._horizontalPanel && leftPanel? 'right' : 'left',
             backVPos = me._horizontalPanel && topPanel? _PANEL_SIZE + 'px' : 'top';
+
+        var center = (me.options.box.top || me.options.box.left)? false : true,
+            top = center? '50%' : me.options.box.top? me.options.box.top : 0,
+            left = center? '50%' : me.options.box.left? me.options.box.left : 0,
+            marginLeft = center? -width / 2 : 0,
+            marginTop = center? -(_STATUS_HEIGHT + height) / 2 : 0;
+
         me.element.empty()
             .css(me.options.debug? {
                 position: 'relative'
             } : {
                 position: 'absolute', overflow: 'hidden',
-                top: '50%', left: '50%',
-                marginLeft: -width / 2,
-                marginTop: -(_STATUS_HEIGHT + height) / 2
+                top: top, left: left,
+                marginLeft: marginLeft, marginTop: marginTop
             })
             .css({
                 backgroundColor: me.options.widget.background,
@@ -610,8 +618,21 @@ $.widget( 'ui.hover', {
             square: me.getSelectedSquare(),
             areas: areas
         };
-        // fixme: send result
-        alert(JSON.stringify(result));
+
+        $.ajax({
+            url: me.options.action,
+            type: 'post',
+            dataType: 'json',
+            data: JSON.stringify(result),
+            contentType: "application/json",
+            success: function (markers) {
+                me.status(MSG_SAVED);
+                me.options.callback();
+            },
+            fail: function (x, t, m) {
+                me.status("failed: " + m);
+            }
+        });
     },
 
     clickArea: function(index) {
@@ -870,15 +891,13 @@ $.widget( 'ui.hover', {
             top = me._horizontalPanel? 7: 39 + off,
             left = me._horizontalPanel? 42 + off : 7;
 
-        console.log(size);
-
         //me._panel.beginPath();
         //me._panel.rect(left - 1, top - 1, size + 2, size + 2);
         //me._panel.fill();
 
         var src = button.src;
         if (!src) {
-            src = CONTEXT_PATH + "img/btn/";
+            src = me.options.contextPath + "img/btn/";
             if (button.calculateName) {
                 src += button.calculateName(me);
             } else {
