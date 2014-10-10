@@ -116,8 +116,8 @@ $.widget( 'ui.hover', {
         me._horizontalPanel = me.options.panel.align == _TOP || me.options.panel.align == _BOTTOM;
         var topPanel = me._horizontalPanel && me.options.panel.align == _TOP,
             leftPanel = !me._horizontalPanel && me.options.panel.align != _RIGHT;
-        me._top  = me._horizontalPanel && topPanel? _PANEL_SIZE : 0;
-        me._left = !me._horizontalPanel && leftPanel? _PANEL_SIZE : 0;
+        me._top  = topPanel? _PANEL_SIZE : 0;
+        me._left = leftPanel? _PANEL_SIZE : 0;
 
         me._canvas = $('<canvas/>')
             .attr('id', me._id + 'canvas')
@@ -150,11 +150,12 @@ $.widget( 'ui.hover', {
 //                else if (me._scaling)
 //                    me._scaleStop();
             });
+        var touchCoef = 1 + 2 * DELTA;
         me._touch = $('<img border="0" alt=""/>')
             .attr('id', me._id + 'touch')
             .attr('src', _IMG_TRANSPARENT)
-            .attr('width', me._w * (1 + 2 * DELTA))
-            .attr('height', me._h * (1 + 2 * DELTA))
+            .attr('width', me._w * touchCoef)
+            .attr('height', me._h * touchCoef)
             .attr('usemap', '#' + me._id + 'map')
             .css(_CSS_NO_BORDER)
             .css({ position: 'absolute',
@@ -166,8 +167,8 @@ $.widget( 'ui.hover', {
             .attr('id', me._id + 'map')
             .attr('name', me._id + 'map');
 
-        var panelLeft = !me._horizontalPanel && !leftPanel? me._w : 0,
-            panelTop = me._horizontalPanel && !topPanel? me._h : 0,
+        var panelLeft = me._horizontalPanel || leftPanel? 0: me._w,
+            panelTop = !me._horizontalPanel || topPanel? 0 : me._h,
             panelWidth = me._horizontalPanel? me._w : _PANEL_SIZE,
             panelHeight = !me._horizontalPanel? me._h : _PANEL_SIZE,
             css = { position: 'absolute', left: panelLeft, top: panelTop, width: panelWidth, height: panelHeight };

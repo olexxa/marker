@@ -26,7 +26,6 @@ $(function() {
             },
             onImage: function(image, scale) {
                 var options = $.extend(opts, {
-                    contextPath: '/marker/',
                     image: {
                         src: image,
                         width: scale.scaled.w,
