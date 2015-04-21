@@ -1,4 +1,6 @@
-﻿.idea
+*.ipr
+*.iml
+.idea
 _backup
 tmp
 target

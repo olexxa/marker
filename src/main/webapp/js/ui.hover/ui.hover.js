@@ -11,7 +11,7 @@ const
 
     MSG_NEXT_MARKER = 'Next marker',
     MSG_TOGGLE_SELECTION = 'Select/deselect all',
-    MSG_NEXT_COLOR = 'Choose selection highlite color',
+    MSG_NEXT_COLOR = 'Choose selection color',
     MSG_TOGGLE_MESH = 'Show/hide mesh',
     MSG_SHIFT_MESH = 'Shift mesh',
     MSG_RESIZE_MESH = 'Resize mesh',
@@ -50,7 +50,7 @@ const
         backgroundColor: '#333333', // border: 'thin solid white',
         color: 'white',
         position: 'absolute', left: 0, height: _STATUS_HEIGHT, minHeight: _STATUS_HEIGHT,
-        padingTop: 4,
+        //paddingTop: 4,
         fontFamily: 'Courier', fontSize: '13px', textAlign: 'center', verticalAlign: 'middle'
     };
 
@@ -67,7 +67,7 @@ $.widget( 'ui.hover', {
         contextPath : '',
         action: '',
         callback: function() {},
-        square: 1,
+        //square: 1,
         box: {},
         image: {
             src: _IMG_TRANSPARENT, width: 400, height: 400, alt: 'Photo'
@@ -569,7 +569,10 @@ $.widget( 'ui.hover', {
 
     getSelectedSquare: function() {
         var me = this;
-        return "" + me.countAreas() * (me._resize * me._resize) * me.options.marker.square;
+        var markerSquare = me._markers[me._markerIndex].square;
+        if (!markerSquare)
+            markerSquare = me.options.marker.square;
+        return "" + me.countAreas() * (me._resize * me._resize) * markerSquare;
     },
 
     _renderSelectedCount: function() {

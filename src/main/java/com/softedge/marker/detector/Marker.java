@@ -11,6 +11,7 @@ import org.opencv.core.Rect;
 import org.opencv.imgproc.Imgproc;
 
 public class Marker {
+    public int square = 1;
     public int id;
     public List<Point> points;
 
@@ -145,6 +146,6 @@ public class Marker {
 
     @Override
     public String toString() {
-        return "id: " + id + ", points: " + points;
+        return "id: " + id + ", points: " + points + ", square: " + square;
     }
 }

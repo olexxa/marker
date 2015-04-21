@@ -8,6 +8,7 @@
 + feat: let the user temporary hide grid an fields by pressing button mesh on/of
 + feat: shows real time information about the marked surface area size,
 + feat: handle multi markers
++ feat: per marker size added
 + impr: join widgets
 + feat: save selection when marker changed
 + impr: draw no lines after vanishing point
@@ -23,5 +24,3 @@
 - feat: save as image
 - bug: no markers - no "reload" button
 - bug: next marker icon
-
--
